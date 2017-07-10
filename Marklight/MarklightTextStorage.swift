@@ -66,12 +66,40 @@ import UIKit
     - see: `Marklight`
  */
 
+/**
+ The Cache Delegate provides caching capabilities for processed strings in order to process
+ reduce overhead incurred by applying attributes to the text storage.
+ */
+public protocol MarklightCacheDelegate: class {
+    
+    func object(forKey key: NSString) -> NSAttributedString?
+    func setObject(_ obj: NSAttributedString, forKey key: NSString)
+    func setObject(_ obj: NSAttributedString, forKey key: NSString, cost g: Int)
+    func removeObject(forKey key: NSString)
+    func removeAllObjects()
+}
+
 open class MarklightTextStorage: NSTextStorage {
 
+    open weak var cacheDelegate: MarklightCacheDelegate?
+    
     // We store here the `NSAttributedString`.
     fileprivate var imp = NSMutableAttributedString(string: "")
     
+    // Style contains the styling attributes.
+    var style: MarklightStyle
+    
+    // Contains all styler objects that process & apply the attributes.
+    let groupStyler: MarklightGroupStyler
+    
+    
     // MARK: Syntax highlight customisation
+    
+    /**
+     Attributes used to display normal 'unhighlighted' text.
+     */
+    open var defaultAttributes: [String: Any]?
+    
     
     /**
     `UIColor` used to highlight markdown syntax. Default value is light grey.
@@ -116,7 +144,8 @@ open class MarklightTextStorage: NSTextStorage {
      If the markdown syntax should be hidden or visible
      */
     open var hideSyntax = false
-        
+    
+    
     // MARK: Syntax highlighting
     
     /**
@@ -133,19 +162,34 @@ open class MarklightTextStorage: NSTextStorage {
     [`NSTextStorage`](xcdoc://?url=developer.apple.com/library/ios/documentation/UIKit/Reference/NSTextStorage_Class_TextKit/index.html#//apple_ref/doc/uid/TP40013282)
     */
     override open func processEditing() {
-        // removeParagraphAttributes()
-        removeWholeAttributes()
-        
-        Marklight.syntaxColor = syntaxColor
-        Marklight.codeFontName = codeFontName
-        Marklight.codeColor = codeColor
-        Marklight.quoteFontName = quoteFontName
-        Marklight.quoteColor = quoteColor
-        Marklight.quoteIndendation = quoteIndendation
-        Marklight.fontTextStyle = fontTextStyle
-        Marklight.hideSyntax = hideSyntax
-        
-        Marklight.processEditing(self)
+    
+        if let cachedString = cacheDelegate?.object(forKey: self.string as NSString) {
+            self.imp = cachedString.mutableCopy() as! NSMutableAttributedString
+        }
+        else {
+            // removeParagraphAttributes()
+            removeWholeAttributes()
+            
+            let wholeRange = NSMakeRange(0, (self.string as NSString).length)
+            
+            // apply default attributes
+            if let attrs = defaultAttributes {
+                addAttributes(attrs, range: wholeRange)
+            }
+            
+            style.syntaxColor = syntaxColor
+            style.codeFontName = codeFontName
+            style.codeColor = codeColor
+            style.quoteFontName = quoteFontName
+            style.quoteColor = quoteColor
+            style.quoteIndendation = quoteIndendation
+            style.fontTextStyle = fontTextStyle
+            style.hideSyntax = hideSyntax
+            
+            groupStyler.addMarkdownAttributes(self, editedRange: wholeRange)
+            
+            cacheDelegate?.setObject(imp.copy() as! NSAttributedString, forKey: self.string as NSString)
+        }
         
         super.processEditing()
     }
@@ -157,6 +201,8 @@ open class MarklightTextStorage: NSTextStorage {
      must call the super implementation of this method.
     */
     override public init() {
+        style = MarklightStyle(hideSyntax: false)
+        groupStyler = MarklightGroupStyler(style: style)
         super.init()
         observeTextSize()
     }
@@ -166,6 +212,8 @@ open class MarklightTextStorage: NSTextStorage {
     call the super implementation of this method.
      */
     required public init?(coder aDecoder: NSCoder) {
+        style = MarklightStyle(hideSyntax: false)
+        groupStyler = MarklightGroupStyler(style: style)
         super.init(coder: aDecoder)
         observeTextSize()
     }
@@ -252,7 +300,7 @@ open class MarklightTextStorage: NSTextStorage {
     }
     
     /**
-    Sets the attributes for the characters in the specified range to the 
+    Sets the attributes for the characters in the specified range to the
     specified attributes. These new attributes replace any attributes previously
     associated with the characters in aRange. Raises an NSRangeException if any
     part of aRange lies beyond the end of the receiver’s characters. To set
