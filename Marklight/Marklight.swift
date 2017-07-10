@@ -310,7 +310,7 @@ open class MarklightStyle: NSObject {
         return UIFontTextStyle.body.rawValue
     }
     
-    init(hideSyntax: Bool) {
+    public init(hideSyntax: Bool) {
         self.hideSyntax = hideSyntax
     }
     
@@ -1144,7 +1144,7 @@ open class MarklightGroupStyler: NSObject {
         self.init(style: MarklightStyle(hideSyntax: true))
     }
     
-    init(style: MarklightStyle) {
+    public init(style: MarklightStyle) {
         self.style = style
         stylers = self.style.defaultStylers()
         super.init()
