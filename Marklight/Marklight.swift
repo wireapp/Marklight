@@ -374,11 +374,11 @@ extension MarklightStyle {
         //
         let headerMatcher = CallbackStyler(matcher: MarklightStyle.headersAtxRegex) { (attrStr, matchRange) in
             
-            MarklightStyle.headingPrefixRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
+            MarklightStyle.headersAtxOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 
-                // choose font depending on size of header prefix
+                // num #'s determines header size ($1 = #{1,6})
                 let font: UIFont;
-                let numHashes = innerResult!.range.length
+                let numHashes = innerResult!.rangeAt(1).length
                 
                 switch numHashes {
                 case 1: font = h1HeadingFont;
@@ -386,10 +386,12 @@ extension MarklightStyle {
                 default: font = h3HeadingFont;
                 }
                 
+                print("number of hashes: \(numHashes)")
+                
                 attrStr.addAttribute(NSFontAttributeName, value: font, range: matchRange)
                 
                 // syntax range
-                let preRange = NSMakeRange(matchRange.location, numHashes)
+                let preRange = NSMakeRange(matchRange.location, innerResult!.range.length)
                 // style syntax
                 if !self.hideSyntax {
                     attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
@@ -681,8 +683,6 @@ extension MarklightStyle {
      ## Subhead ##
      */
     
-    fileprivate static let headingPrefixRegex = Regex(pattern: "(\\#{1,6})")
-    
     fileprivate static let h1HeaderPattern = [
         "^(\\#)     # $1 = single # symbol",
         "\\p{Z}*",
@@ -728,7 +728,7 @@ extension MarklightStyle {
     fileprivate static let headersAtxRegex = Regex(pattern: headerAtxPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     
     fileprivate static let headersAtxOpeningPattern = [
-        "^(\\#{1,6})"
+        "^(\\#{1,6})\\s*"
         ].joined(separator: "\n")
     
     fileprivate static let headersAtxOpeningRegex = Regex(pattern: headersAtxOpeningPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
