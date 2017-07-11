@@ -176,8 +176,7 @@ public struct Regex {
 }
 
 
-// MarklightStyler provides markdown processing for a particular
-// Regex object.
+// MarklightStyler provides markdown processing for a single regular expression.
 //
 public protocol MarklightStyler {
     var matcher: Regex { get }
@@ -185,8 +184,7 @@ public protocol MarklightStyler {
 }
 
 
-// A simple markdown styler: parses an input string with the Regex and applies
-// the given styling attributes.
+// Parses an input string and applies styling attributes for any matches.
 //
 open class BasicStyler: MarklightStyler {
     
@@ -209,11 +207,11 @@ open class BasicStyler: MarklightStyler {
 
 
 // Called within processMatch
+//
 public typealias StylingCallback = (NSMutableAttributedString, NSRange) -> Void
 
 
-// Parses input string with given Regex and calls the callback closure
-// to apply the styling.
+// Parses an input string and calls the styling callback with the match range.
 //
 open class CallbackStyler: MarklightStyler {
     
@@ -232,55 +230,53 @@ open class CallbackStyler: MarklightStyler {
     }
 }
 
-// Defines the styling attributes
+
+// Defines the Markdown styling attributes.
 //
 open class MarklightStyle: NSObject {
-    /**
-     `UIColor` used to highlight markdown syntax. Default value is light grey.
-     */
+    
+    // Color used to highlight markdown syntax.
+    //
     public var syntaxColor = UIColor.lightGray
     
-    /**
-     Font used for blocks and inline code. Default value is *Menlo*.
-     */
+    // Font used for blocks & inline code.
+    //
     public var codeFontName = "Menlo"
     
-    /**
-     `UIColor` used for blocks and inline code. Default value is dark grey.
-     */
+    // Color used for blocks and inline code.
+    //
     public var codeColor = UIColor.darkGray
     
-    /**
-     Font used for quote blocks. Default value is *Menlo*.
-     */
+    // Font used for quote blocks.
+    //
     public var quoteFontName = "Menlo"
     
-    /**
-     `UIColor` used for quote blocks. Default value is dark grey.
-     */
+    // Color used for quote blocks.
+    //
     public var quoteColor = UIColor.darkGray
     
-    /**
-     Quote indentation in points. Default 20.
-     */
+    // Quote indentation in points.
+    //
     public var quoteIndendation : CGFloat = 20
     
     /**
      Dynamic type font text style, default `UIFontTextStyleBody`.
      
-     - see:
-     [Text
-     Styles](xcdoc://?url=developer.apple.com/library/ios/documentation/UIKit/Reference/UIFontDescriptor_Class/index.html#//apple_ref/doc/constant_group/Text_Styles)
      */
+    
+    // Dynamic type font text styles.
+    // - see:
+    // [TextStyles](xcdoc://?url=developer.apple.com/library/ios/documentation/UIKit/Reference/UIFontDescriptor_Class/index.html#//apple_ref/doc/constant_group/Text_Styles)
+    //
     public var fontTextStyle : String = UIFontTextStyle.body.rawValue
     
-    /**
-     If the markdown syntax should be hidden or visible
-     */
+    // If the markdown syntax should be hidden or visible.
+    //
     public var hideSyntax = false
     
     // We are validating the user provided fontTextStyle `String` to match the
     // system supported ones.
+    //
     fileprivate var fontTextStyleValidated : String {
         if fontTextStyle == UIFontTextStyle.headline.rawValue {
             return UIFontTextStyle.headline.rawValue
@@ -310,11 +306,14 @@ open class MarklightStyle: NSObject {
         return UIFontTextStyle.body.rawValue
     }
     
+    // -----------------------------------------------------------
+    
     public init(hideSyntax: Bool) {
         self.hideSyntax = hideSyntax
     }
     
     // We transform the user provided `codeFontName` `String` to a `NSFont`
+    //
     fileprivate func codeFont(_ size: CGFloat) -> UIFont {
         if let font = UIFont(name: codeFontName, size: size) {
             return font
@@ -324,6 +323,7 @@ open class MarklightStyle: NSObject {
     }
     
     // We transform the user provided `quoteFontName` `String` to a `NSFont`
+    //
     fileprivate func quoteFont(_ size: CGFloat) -> UIFont {
         if let font = UIFont(name: quoteFontName, size: size) {
             return font
@@ -334,6 +334,7 @@ open class MarklightStyle: NSObject {
     
     // Transform the quote indentation in the `NSParagraphStyle` required to set
     //  the attribute on the `NSAttributedString`.
+    //
     fileprivate var quoteIndendationStyle : NSParagraphStyle {
         let paragraphStyle = NSMutableParagraphStyle()
         paragraphStyle.headIndent = quoteIndendation
@@ -367,7 +368,7 @@ extension MarklightStyle {
         var result: [MarklightStyler] = []
         
         
-        // Hash headers: 1 to 6 #'s followed by text
+        // Headers: 1 to 6 #'s followed by header text
         //
         let headerMatcher = CallbackStyler(matcher: MarklightStyle.headersAtxRegex) { (attrStr, matchRange) in
             
@@ -377,21 +378,33 @@ extension MarklightStyle {
                 let font: UIFont;
                 let numHashes = innerResult!.rangeAt(1).length
                 
+                // we only down to H3
                 switch numHashes {
                 case 1: font = h1HeadingFont;
                 case 2: font = h2HeadingFont;
                 default: font = h3HeadingFont;
                 }
                 
+                // apply markdown style
                 attrStr.addAttribute(NSFontAttributeName, value: font, range: matchRange)
                 
-                // syntax range
+                // syntax range & style
                 let preRange = NSMakeRange(matchRange.location, innerResult!.range.length)
-                // style syntax
+                
                 if !self.hideSyntax {
                     attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
                 } else {
                     attrStr.addAttributes(hiddenAttributes, range: preRange)
+                }
+            })
+            
+            // trailing #'s are syntax
+            MarklightStyle.headersAtxClosingRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
+                
+                if !self.hideSyntax {
+                    attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
+                } else {
+                    attrStr.addAttributes(hiddenAttributes, range: innerResult!.range)
                 }
             })
         }
@@ -399,12 +412,11 @@ extension MarklightStyle {
         result.append(headerMatcher)
 
         
-        
-        // MARK: BOLD & ITALICS
-        // --------------------
-        
+        // strict italics: _italics_ or *italics*
+        //
         let strictItalicMatcher = CallbackStyler(matcher: MarklightStyle.strictItalicRegex) { (attrStr, matchRange) in
-            // apply markdown attributes
+            
+            // apply markdown style
             attrStr.addAttribute(NSFontAttributeName, value: italicFont, range: matchRange)
             
             let substring = (attrStr.string as NSString).substring(with: NSMakeRange(matchRange.location, 1))
@@ -426,8 +438,8 @@ extension MarklightStyle {
         }
         
         result.append(strictItalicMatcher)
-//
-//        
+
+        
 //        let strictBoldMatcher = CallbackStyler(matcher: MarklightStyle.strictItalicRegex) { (attrStr, matchRange) in
 //            // apply markdown attributes
 //            attrStr.addAttribute(NSFontAttributeName, value: boldFont, range: matchRange)
@@ -472,7 +484,7 @@ extension MarklightStyle {
 //        result.append(italicMatcher)
         
         
-        // bold: **word** or __word__
+        // bold: **bold** or __bold__
         //
         let boldMatcher = CallbackStyler(matcher: MarklightStyle.boldRegex) { (attrStr, matchRange) in
             
@@ -511,7 +523,6 @@ extension MarklightStyle {
         result.append(boldMatcher)
         
         return result
-        
     }
     
     
@@ -520,7 +531,7 @@ extension MarklightStyle {
         let textSize = UIFontDescriptor.preferredFontDescriptor(withTextStyle: UIFontTextStyle(rawValue: fontTextStyleValidated)).pointSize
     
         let headingFont = UIFont.boldSystemFont(ofSize: 25.0)
-        let codeFont = self.codeFont(textSize)
+        let codeFont = self.codeFont(13.0)
         let quoteFont = self.quoteFont(textSize)
         
         let hiddenAttributes: [String: AnyObject] = [
@@ -529,10 +540,7 @@ extension MarklightStyle {
         ]
         
         var result: [MarklightStyler] = []
-        
 
-        // MARK: HEADERS
-        // -------------
         
         // underline header: header  or  header
         //                   ------      ======
@@ -554,18 +562,9 @@ extension MarklightStyle {
         result.append(underlineHeaderMatcher)
         
         
-        // MARK: LINKS & LISTS
-        // -------------------
-        
-        // reference links:
-        //
-        let referenceLinkMatcher = CallbackStyler(matcher: MarklightStyle.referenceLinkRegex) { (attrStr, matchRange) in
-            attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: matchRange)
-        }
-        
-        result.append(referenceLinkMatcher)
-        
-        // lists:
+        // lists:   1. item or  * item
+        //          2. item     + item
+        //          3. item     - item
         //
         let listMatcher = CallbackStyler(matcher: MarklightStyle.listRegex) { (attrStr, matchRange) in
             MarklightStyle.listOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
@@ -575,104 +574,13 @@ extension MarklightStyle {
         
         result.append(listMatcher)
         
-//        // anchors (links):
-//        //
-//        let anchorMatcher = CallbackStyler(matcher: MarklightStyle.anchorRegex) { (attrStr, matchRange) in
-//            // apply markdown attributes
-//            attrStr.addAttribute(NSFontAttributeName, value: codeFont, range: matchRange)
-//            
-//            MarklightStyle.openingSquareRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-//                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
-//            })
-//            
-//            MarklightStyle.closingSquareRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-//                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
-//            })
-//            
-//            MarklightStyle.parenRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-//                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
-//                
-//                if self.hideSyntax {
-//                    let preRange = NSMakeRange(innerResult!.range.location, 1)
-//                    let postRange = NSMakeRange(innerResult!.range.location + innerResult!.range.length - 1, 1)
-//                    attrStr.addAttributes(hiddenAttributes, range: preRange)
-//                    attrStr.addAttributes(hiddenAttributes, range: postRange)
-//                }
-//            })
-//        }
-//        
-//        result.append(anchorMatcher)
-//        
-//        // inline anchors (links):
-//        //
-//        let inlineAnchorMatcher = CallbackStyler(matcher: MarklightStyle.imageInlineRegex) { (attrStr, matchRange) in
-//            // apply markdown attributes
-//            attrStr.addAttribute(NSFontAttributeName, value: codeFont, range: matchRange)
-//            
-//            var destinationLink: String?
-//            
-//            MarklightStyle.coupleRoundRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-//                
-//                if !self.hideSyntax {
-//                    attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
-//                    
-//                    var range = innerResult!.range
-//                    range.location += 1
-//                    range.length -= 2
-//                    
-//                    let substring = (attrStr.string as NSString).substring(with: range)
-//                    guard substring.lengthOfBytes(using: .utf8) > 0 else { return }
-//                    
-//                    destinationLink = substring
-//                    attrStr.addAttribute(NSLinkAttributeName, value: substring, range: range)
-//                    
-//                } else {
-//                    attrStr.addAttributes(hiddenAttributes, range: innerResult!.range)
-//                }
-//            })
-//            
-//            MarklightStyle.openingSquareRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-//                
-//                if !self.hideSyntax {
-//                    attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
-//                } else {
-//                    attrStr.addAttributes(hiddenAttributes, range: innerResult!.range)
-//                }
-//            })
-//            
-//            MarklightStyle.closingSquareRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-//                
-//                if !self.hideSyntax {
-//                    attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
-//                } else {
-//                    attrStr.addAttributes(hiddenAttributes, range: innerResult!.range)
-//                }
-//            })
-//            
-//            guard let destinationLinkString = destinationLink else { return }
-//            
-//            MarklightStyle.coupleSquareRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-//                var range = innerResult!.range
-//                range.location += 1
-//                range.length -= 2
-//                
-//                let substring = (attrStr.string as NSString).substring(with: range)
-//                guard substring.lengthOfBytes(using: .utf8) > 0 else { return }
-//                
-//                attrStr.addAttribute(NSLinkAttributeName, value: destinationLinkString, range: range)
-//            })
-//        }
-//        
-//        result.append(inlineAnchorMatcher)
         
         
-        // MARK: CODE BLOCKS & QUOTES
-        // --------------------------
-        
-        // inline code:
+        // inline code: `code goes here`
         //
         let codeSpanMatcher = CallbackStyler(matcher: MarklightStyle.codeSpanRegex) { (attrStr, matchRange) in
-            // apply markdown attributes
+            
+            // apply markdown style
             attrStr.addAttribute(NSFontAttributeName, value: codeFont, range: matchRange)
             attrStr.addAttribute(NSForegroundColorAttributeName, value: self.codeColor, range: matchRange)
             
@@ -697,7 +605,8 @@ extension MarklightStyle {
         
         result.append(codeSpanMatcher)
         
-        // code blocks:
+        
+        // code blocks: lines must start with 4 spaces
         //
         let codeBlockMatcher = CallbackStyler(matcher: MarklightStyle.codeBlockRegex) { (attrStr, matchRange) in
             attrStr.addAttribute(NSFontAttributeName, value: codeFont, range: matchRange)
@@ -706,7 +615,7 @@ extension MarklightStyle {
         
         result.append(codeBlockMatcher)
         
-        // block quotes:
+        // block quotes: fisrt line must start with >
         //
         let blockQuoteMatcher = CallbackStyler(matcher: MarklightStyle.blockQuoteRegex) { (attrStr, matchRange) in
             attrStr.addAttribute(NSFontAttributeName, value: quoteFont, range: matchRange)
@@ -723,9 +632,6 @@ extension MarklightStyle {
         }
         
         result.append(blockQuoteMatcher)
-        
-        
-        
         
         return result
     }
@@ -1175,24 +1081,16 @@ extension MarklightStyle {
     }
 }
 
-/**
-    Marklight struct that parses a `String` inside a `NSTextStorage`
- subclass, looking for markdown syntax to be highlighted. Internally many 
- regular expressions are used to detect the syntax. The highlights will be 
- applied as attributes to the `NSTextStorage`'s `NSAttributedString`. You should 
- create your our `NSTextStorage` subclass or use the readily available 
- `MarklightTextStorage` class.
 
- - see: `MarklightTextStorage`
-*/
-
-
-
+// MarklightGroupStyler defines are single Markdown parser. It collects 
+// multiple stylers, each responsible for parsing and styling a unit
+// of markdown syntax.
+//
 open class MarklightGroupStyler: NSObject {
     
+    let style: MarklightStyle
     var stylers: [MarklightStyler]
     var stylersPerParagraph: [MarklightStyler]
-    let style: MarklightStyle
     
     public override convenience init() {
         self.init(style: MarklightStyle(hideSyntax: true))
@@ -1204,21 +1102,9 @@ open class MarklightGroupStyler: NSObject {
         stylersPerParagraph = self.style.defaultParagraphStylers()
         super.init()
     }
-    
 
     // MARK: Processing
     
-    /**
-    This function should be called by the `-processEditing` method in your 
-        `NSTextStorage` subclass and this is the function that is being called 
-        for every change in the `UITextView`'s text.
-
-    - parameter textStorage: your `NSTextStorage` subclass as the highlights
-        will be applied to its attributed string through the `-addAttribute:value:range:` method.
-    */
-    
-    // NEED TO RETURN THE STRING
-    // NSNotFound
     @objc open func addMarkdownAttributes(_ input: NSAttributedString, editedRange: NSRange) {
         
         let wholeRange = NSMakeRange(0, (input.string as NSString).length)
@@ -1234,6 +1120,4 @@ open class MarklightGroupStyler: NSObject {
 
         }
     }
-    
-    
 }
