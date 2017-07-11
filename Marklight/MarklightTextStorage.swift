@@ -186,7 +186,7 @@ open class MarklightTextStorage: NSTextStorage {
             style.fontTextStyle = fontTextStyle
             style.hideSyntax = hideSyntax
             
-            groupStyler.addMarkdownAttributes(self, editedRange: wholeRange)
+            groupStyler.addMarkdownAttributes(self, editedRange: self.editedRange)
             
             cacheDelegate?.setObject(imp.copy() as! NSAttributedString, forKey: self.string as NSString)
         }

@@ -346,7 +346,7 @@ open class MarklightStyle: NSObject {
 //
 extension MarklightStyle {
     
-    func defaultStylers() -> [MarklightStyler] {
+    func defaultParagraphStylers() -> [MarklightStyler] {
         
         let textSize = UIFontDescriptor.preferredFontDescriptor(withTextStyle: UIFontTextStyle(rawValue: fontTextStyleValidated)).pointSize
         
@@ -356,19 +356,16 @@ extension MarklightStyle {
         
         let italicFont = UIFont.italicSystemFont(ofSize: textSize)
         let boldFont = UIFont.boldSystemFont(ofSize: textSize)
-        let codeFont = self.codeFont(textSize)
-        let quoteFont = self.quoteFont(textSize)
+        let boldItalicFont = UIFont(name: "Helvetica-BoldOblique", size: textSize)!
         
         let hiddenAttributes: [String: AnyObject] = [
             NSFontAttributeName: UIFont.systemFont(ofSize: 0.1),
             NSForegroundColorAttributeName: UIColor.clear
         ]
         
+        
         var result: [MarklightStyler] = []
         
-
-        // MARK: HEADERS
-        // -------------
         
         // Hash headers: 1 to 6 #'s followed by text
         //
@@ -402,14 +399,139 @@ extension MarklightStyle {
         }
         
         result.append(headerMatcher)
+
         
+        
+        // MARK: BOLD & ITALICS
+        // --------------------
+        
+//        let strictItalicMatcher = CallbackStyler(matcher: MarklightStyle.strictItalicRegex) { (attrStr, matchRange) in
+//            // apply markdown attributes
+//            attrStr.addAttribute(NSFontAttributeName, value: italicFont, range: matchRange)
+//            
+//            let substring = (attrStr.string as NSString).substring(with: NSMakeRange(matchRange.location, 1))
+//            var start = 0
+//            if substring == " " {
+//                start = 1
+//            }
+//            
+//            let preRange = NSMakeRange(matchRange.location + start, 1)
+//            let postRange = NSMakeRange(matchRange.location + matchRange.length - 1, 1)
+//            
+//            if !self.hideSyntax {
+//                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
+//                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: postRange)
+//            } else {
+//                attrStr.addAttributes(hiddenAttributes, range: preRange)
+//                attrStr.addAttributes(hiddenAttributes, range: postRange)
+//            }
+//        }
+//        
+//        result.append(strictItalicMatcher)
+//        
+//        
+//        let strictBoldMatcher = CallbackStyler(matcher: MarklightStyle.strictItalicRegex) { (attrStr, matchRange) in
+//            // apply markdown attributes
+//            attrStr.addAttribute(NSFontAttributeName, value: boldFont, range: matchRange)
+//            
+//            let substring = (attrStr.string as NSString).substring(with: NSMakeRange(matchRange.location, 1))
+//            var start = 0
+//            if substring == " " {
+//                start = 1
+//            }
+//            
+//            let preRange = NSMakeRange(matchRange.location + start, 2)
+//            let postRange = NSMakeRange(matchRange.location + matchRange.length - 2, 2)
+//            
+//            if !self.hideSyntax {
+//                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
+//                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: postRange)
+//            } else {
+//                attrStr.addAttributes(hiddenAttributes, range: preRange)
+//                attrStr.addAttributes(hiddenAttributes, range: postRange)
+//            }
+//        }
+//        
+//        result.append(strictBoldMatcher)
+        
+        
+        let italicMatcher = CallbackStyler(matcher: MarklightStyle.italicRegex) { (attrStr, matchRange) in
+            // apply markdown attributes
+            attrStr.addAttribute(NSFontAttributeName, value: italicFont, range: matchRange)
+            // ranges of syntax
+            let preRange = NSMakeRange(matchRange.location, 1)
+            let postRange = NSMakeRange(matchRange.location + matchRange.length - 1, 1)
+            // style syntax else hide it
+            if !self.hideSyntax {
+                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
+                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: postRange)
+            } else {
+                attrStr.addAttributes(hiddenAttributes, range: preRange)
+                attrStr.addAttributes(hiddenAttributes, range: postRange)
+            }
+        }
+        
+        result.append(italicMatcher)
+        
+        
+        // bold: **word** or __word__
+        //
+        let boldMatcher = CallbackStyler(matcher: MarklightStyle.boldRegex) { (attrStr, matchRange) in
+            //            // check if range already is italic
+            //            let currFont = attrStr.attribute(NSFontAttributeName, at: matchRange.location, longestEffectiveRange: nil, in: matchRange) as! UIFont
+            //
+            //            if currFont === italicFont {
+            //                attrStr.addAttribute(NSFontAttributeName, value: boldItalicFont, range: matchRange)
+            //            } else {
+            //                attrStr.addAttribute(NSFontAttributeName, value: boldFont, range: matchRange)
+            //            }
+            
+            attrStr.addAttribute(NSFontAttributeName, value: boldFont, range: matchRange)
+            
+            // ranges of syntax
+            let preRange = NSMakeRange(matchRange.location, 2)
+            let postRange = NSMakeRange(matchRange.location + matchRange.length - 2, 2)
+            // style syntax else hide it
+            if !self.hideSyntax {
+                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
+                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: postRange)
+            } else {
+                attrStr.addAttributes(hiddenAttributes, range: preRange)
+                attrStr.addAttributes(hiddenAttributes, range: postRange)
+            }
+        }
+        
+        result.append(boldMatcher)
+        
+        return result
+        
+    }
+    
+    func defaultStylers() -> [MarklightStyler] {
+        
+        let textSize = UIFontDescriptor.preferredFontDescriptor(withTextStyle: UIFontTextStyle(rawValue: fontTextStyleValidated)).pointSize
+    
+        let headingFont = UIFont.boldSystemFont(ofSize: 25.0)
+        let codeFont = self.codeFont(textSize)
+        let quoteFont = self.quoteFont(textSize)
+        
+        let hiddenAttributes: [String: AnyObject] = [
+            NSFontAttributeName: UIFont.systemFont(ofSize: 0.1),
+            NSForegroundColorAttributeName: UIColor.clear
+        ]
+        
+        var result: [MarklightStyler] = []
+        
+
+        // MARK: HEADERS
+        // -------------
         
         // underline header: header  or  header
         //                   ------      ======
         //
         let underlineHeaderMatcher = CallbackStyler(matcher: MarklightStyle.headersSetexRegex) { (attrStr, matchRange) in
             // apply markdown attributes
-            attrStr.addAttribute(NSFontAttributeName, value: h1HeadingFont, range: matchRange)
+            attrStr.addAttribute(NSFontAttributeName, value: headingFont, range: matchRange)
             // match syntax
             MarklightStyle.headersSetexUnderlineRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 // style syntax else hide it
@@ -595,51 +717,7 @@ extension MarklightStyle {
         result.append(blockQuoteMatcher)
         
         
-        // MARK: BOLD & ITALICS
-        // --------------------
         
-        // italics: *word* or _word_
-        //
-        let italicMatcher = CallbackStyler(matcher: MarklightStyle.italicRegex) { (attrStr, matchRange) in
-            // apply markdown attributes
-            attrStr.addAttribute(NSFontAttributeName, value: italicFont, range: matchRange)
-            // ranges of syntax
-            let preRange = NSMakeRange(matchRange.location, 1)
-            let postRange = NSMakeRange(matchRange.location + matchRange.length - 1, 1)
-            // style syntax else hide it
-            if !self.hideSyntax {
-                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
-                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: postRange)
-            } else {
-                attrStr.addAttributes(hiddenAttributes, range: preRange)
-                attrStr.addAttributes(hiddenAttributes, range: postRange)
-            }
-        }
-        
-        result.append(italicMatcher)
-        
-        
-        // FIXME: nested bold and italics
-        
-        // bold: **word** or __word__
-        //
-        let boldMatcher = CallbackStyler(matcher: MarklightStyle.boldRegex) { (attrStr, matchRange) in
-            // apply markdown attributes
-            attrStr.addAttribute(NSFontAttributeName, value: boldFont, range: matchRange)
-            // ranges of syntax
-            let preRange = NSMakeRange(matchRange.location, 2)
-            let postRange = NSMakeRange(matchRange.location + matchRange.length - 2, 2)
-            // style syntax else hide it
-            if !self.hideSyntax {
-                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: preRange)
-                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: postRange)
-            } else {
-                attrStr.addAttributes(hiddenAttributes, range: preRange)
-                attrStr.addAttributes(hiddenAttributes, range: postRange)
-            }
-        }
-        
-        result.append(boldMatcher)
         
         return result
     }
@@ -1105,6 +1183,7 @@ extension MarklightStyle {
 open class MarklightGroupStyler: NSObject {
     
     var stylers: [MarklightStyler]
+    var stylersPerParagraph: [MarklightStyler]
     let style: MarklightStyle
     
     public override convenience init() {
@@ -1114,6 +1193,7 @@ open class MarklightGroupStyler: NSObject {
     public init(style: MarklightStyle) {
         self.style = style
         stylers = self.style.defaultStylers()
+        stylersPerParagraph = self.style.defaultParagraphStylers()
         super.init()
     }
     
@@ -1143,10 +1223,10 @@ open class MarklightGroupStyler: NSObject {
             matcher.processMatch(in: input as! NSMutableAttributedString, range: wholeRange)
         }
         
-//        self.stylersPerParagraph.forEach { matcher in
-//            matcher.processMatch(in: input as! NSMutableAttributedString, range: paragraphRange)
-//
-//        }
+        self.stylersPerParagraph.forEach { matcher in
+            matcher.processMatch(in: input as! NSMutableAttributedString, range: paragraphRange)
+
+        }
     }
     
     
