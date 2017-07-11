@@ -683,39 +683,6 @@ extension MarklightStyle {
      ## Subhead ##
      */
     
-    fileprivate static let h1HeaderPattern = [
-        "^(\\#)     # $1 = single # symbol",
-        "\\p{Z}*",
-        "(.+?)      # $2 = Header text",
-        "\\p{Z}*",
-        "\\#*         # optional closing #'s (not counted)",
-        "\\n+"
-        ].joined(separator: "\n")
-    
-    fileprivate static let h1HeaderRegex = Regex(pattern: h1HeaderPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
-    
-    fileprivate static let h2HeaderPattern = [
-        "^(\\#{2})     # $1 = single # symbol",
-        "\\p{Z}*",
-        "(.+?)      # $2 = Header text",
-        "\\p{Z}*",
-        "\\#*         # optional closing #'s (not counted)",
-        "\\n+"
-        ].joined(separator: "\n")
-    
-    fileprivate static let h2HeaderRegex = Regex(pattern: h2HeaderPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
-    
-    fileprivate static let h3HeaderPattern = [
-        "^(\\#{3})     # $1 = single # symbol",
-        "\\p{Z}*",
-        "(.+?)      # $2 = Header text",
-        "\\p{Z}*",
-        "\\#*         # optional closing #'s (not counted)",
-        "\\n+"
-        ].joined(separator: "\n")
-    
-    fileprivate static let h3HeaderRegex = Regex(pattern: h3HeaderPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
-    
     fileprivate static let headerAtxPattern = [
         "^(\\#{1,6})  # $1 = string of #'s",
         "\\p{Z}*",
