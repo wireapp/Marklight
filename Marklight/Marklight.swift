@@ -353,7 +353,7 @@ extension MarklightStyle {
         
         let h1HeadingFont = UIFont.boldSystemFont(ofSize: 25.0)
         let h2HeadingFont = UIFont.boldSystemFont(ofSize: 20.0)
-        let h3HeadingFont = UIFont.boldSystemFont(ofSize: 15.0)
+        let h3HeadingFont = UIFont.boldSystemFont(ofSize: 18.0)
         
         let italicFont = UIFont.italicSystemFont(ofSize: textSize)
         let boldFont = UIFont.boldSystemFont(ofSize: textSize)
@@ -531,7 +531,7 @@ extension MarklightStyle {
         let textSize = UIFontDescriptor.preferredFontDescriptor(withTextStyle: UIFontTextStyle(rawValue: fontTextStyleValidated)).pointSize
     
         let headingFont = UIFont.boldSystemFont(ofSize: 25.0)
-        let codeFont = self.codeFont(13.0)
+        let codeFont = self.codeFont(textSize)
         let quoteFont = self.quoteFont(textSize)
         
         let hiddenAttributes: [String: AnyObject] = [
@@ -1009,6 +1009,8 @@ extension MarklightStyle {
     fileprivate static let italicPattern = "(\\*|_) (?=\\S) (.+?) (?<=\\S) \\1"
     
     fileprivate static let italicRegex = Regex(pattern: italicPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
+    
+    // MARK: Links
     
     fileprivate static let autolinkPattern = "((https?|ftp):[^'\">\\s]+)"
     
