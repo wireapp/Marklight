@@ -90,7 +90,7 @@ open class MarklightTextStorage: NSTextStorage {
     var style: MarklightStyle
     
     // Contains all styler objects that process & apply the attributes.
-    let groupStyler: MarklightGroupStyler
+    open let groupStyler: MarklightGroupStyler
     
     
     // MARK: Syntax highlight customisation
