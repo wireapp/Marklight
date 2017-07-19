@@ -492,13 +492,11 @@ extension MarklightStyle {
         return underlineHeaderMatcher
     }
     
-    // lists:   1. item or  * item
-    //          2. item     + item
-    //          3. item     - item
+    // number lists:    1. item, 2. item
     //
-    func listStyler() -> MarklightStyler {
+    func numberListStyler() -> MarklightStyler {
         
-        let listMatcher = MarklightStyler(matcher: MarklightStyle.listRegex) { (attrStr, matchRange) in
+        let listMatcher = MarklightStyler(matcher: MarklightStyle.looseNumberListRegex) { (attrStr, matchRange) in
             MarklightStyle.listOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
             })
@@ -506,6 +504,20 @@ extension MarklightStyle {
         
         return listMatcher
     }
+    
+    // number lists:    * item, + item, - item
+    //
+    func bulletListStyler() -> MarklightStyler {
+        
+        let listMatcher = MarklightStyler(matcher: MarklightStyle.looseBulletListRegex) { (attrStr, matchRange) in
+            MarklightStyle.listOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
+                attrStr.addAttribute(NSForegroundColorAttributeName, value: self.syntaxColor, range: innerResult!.range)
+            })
+        }
+        
+        return listMatcher
+    }
+
     
     // inline code: `code goes here`
     //
@@ -704,6 +716,10 @@ extension MarklightStyle {
     
     fileprivate static let listRegex = Regex(pattern: listPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     fileprivate static let listOpeningRegex = Regex(pattern: _listMarker, options: [.allowCommentsAndWhitespace])
+    
+    fileprivate static let looseNumberListRegex = Regex(pattern: "(?:^\(_markerOL)[\\t ]+)(.|[\\t ])*", options: [.anchorsMatchLines])
+    fileprivate static let looseBulletListRegex = Regex(pattern: "(?:^\(_markerUL)[\\t ]+)(.|[\\t ])*", options: [.anchorsMatchLines])
+    
     
     // MARK: Anchors
     
@@ -1043,7 +1059,8 @@ open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
     var underlineHeaderStyler: MarklightStyler
     var italicStyler: MarklightStyler
     var boldStyler: MarklightStyler
-    var listStyler: MarklightStyler
+    var numberListStyler: MarklightStyler
+    var bulletListStyler: MarklightStyler
     var inlineCodeStyler: MarklightStyler
     var blockCodeStyler: MarklightStyler
     var blockQuoteStyler: MarklightStyler
@@ -1058,13 +1075,14 @@ open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
         underlineHeaderStyler = style.underlineHeaderStyler()
         italicStyler = style.italicStyler()
         boldStyler = style.boldStyler()
-        listStyler = style.listStyler()
+        numberListStyler = style.numberListStyler()
+        bulletListStyler = style.bulletListStyler()
         inlineCodeStyler = style.inlineCodeStyler()
         blockCodeStyler = style.blockCodeStyler()
         blockQuoteStyler = style.blockQuoteStyler()
         
         stylersPerParagraph = [headerStyler, italicStyler, boldStyler]
-        stylers = [underlineHeaderStyler, listStyler, inlineCodeStyler, blockCodeStyler, blockQuoteStyler]
+        stylers = [underlineHeaderStyler, numberListStyler, bulletListStyler, inlineCodeStyler, blockCodeStyler, blockQuoteStyler]
         
         super.init()
         
@@ -1104,11 +1122,12 @@ open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
         
         // TODO: deal with different headers & list
         switch type {
-        case .header(_):                return elementRanges[headerStyler] ?? []
-        case .italic:                   return elementRanges[italicStyler] ?? []
-        case .bold:                     return elementRanges[boldStyler] ?? []
-        case .numberList, .bulletList:  return elementRanges[listStyler] ?? []
-        case .code:                     return elementRanges[inlineCodeStyler] ?? []
+        case .header(_):    return elementRanges[headerStyler] ?? []
+        case .italic:       return elementRanges[italicStyler] ?? []
+        case .bold:         return elementRanges[boldStyler] ?? []
+        case .numberList:   return elementRanges[numberListStyler] ?? []
+        case .bulletList:   return elementRanges[bulletListStyler] ?? []
+        case .code:         return elementRanges[inlineCodeStyler] ?? []
         }
     }
 }
