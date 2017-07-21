@@ -86,64 +86,18 @@ open class MarklightTextStorage: NSTextStorage {
     // We store here the `NSAttributedString`.
     fileprivate var imp = NSMutableAttributedString(string: "")
     
-    // Style contains the styling attributes.
-    var style: MarklightStyle
     
     // Contains all styler objects that process & apply the attributes.
     open let groupStyler: MarklightGroupStyler
     
-    
     // MARK: Syntax highlight customisation
+
+    // Style contains the styling attributes.
+    open var style: MarklightStyle
     
-    /**
-     Attributes used to display normal 'unhighlighted' text.
-     */
+    // Attributes used to display normal 'unhighlighted' text.
+    //
     open var defaultAttributes: [String: Any]?
-    
-    
-    /**
-    `UIColor` used to highlight markdown syntax. Default value is light grey.
-    */
-    open var syntaxColor = UIColor.lightGray
-    
-    /**
-     Font used for blocks and inline code. Default value is *Menlo*.
-     */
-    open var codeFontName = "Menlo"
-    
-    /**
-     `UIColor` used for blocks and inline code. Default value is dark grey.
-     */
-    open var codeColor = UIColor.darkGray
-    
-    /**
-     Font used for quote blocks. Default value is *Menlo*.
-     */
-    open var quoteFontName = "Menlo"
-    
-    /**
-     `UIColor` used for quote blocks. Default value is dark grey.
-     */
-    open var quoteColor = UIColor.darkGray
-    
-    /**
-     Quote indentation in points. Default 20.
-     */
-    open var quoteIndendation : CGFloat = 20
-    
-    /**
-     Dynamic type font text style, default `UIFontTextStyleBody`.
-     
-     - see: 
-       [Text 
-       Styles](xcdoc://?url=developer.apple.com/library/ios/documentation/UIKit/Reference/UIFontDescriptor_Class/index.html#//apple_ref/doc/constant_group/Text_Styles)
-     */
-    open var fontTextStyle : String = UIFontTextStyle.body.rawValue
-    
-    /**
-     If the markdown syntax should be hidden or visible
-     */
-    open var hideSyntax = false
     
     
     // MARK: Syntax highlighting
@@ -167,7 +121,7 @@ open class MarklightTextStorage: NSTextStorage {
             self.imp = cachedString.mutableCopy() as! NSMutableAttributedString
         }
         else {
-            // removeParagraphAttributes()
+            
             removeWholeAttributes()
             
             let wholeRange = NSMakeRange(0, (self.string as NSString).length)
@@ -177,17 +131,7 @@ open class MarklightTextStorage: NSTextStorage {
                 addAttributes(attrs, range: wholeRange)
             }
             
-            style.syntaxColor = syntaxColor
-            style.codeFontName = codeFontName
-            style.codeColor = codeColor
-            style.quoteFontName = quoteFontName
-            style.quoteColor = quoteColor
-            style.quoteIndendation = quoteIndendation
-            style.fontTextStyle = fontTextStyle
-            style.hideSyntax = hideSyntax
-            
             groupStyler.addMarkdownAttributes(self, editedRange: self.editedRange)
-            
             cacheDelegate?.setObject(imp.copy() as! NSAttributedString, forKey: self.string as NSString)
         }
         
@@ -200,22 +144,15 @@ open class MarklightTextStorage: NSTextStorage {
     The designated initialiser. If you subclass `MarklightTextStorage`, you
      must call the super implementation of this method.
     */
-    override public init() {
-        style = MarklightStyle(hideSyntax: false)
+    public init(style: MarklightStyle) {
+        self.style = style
         groupStyler = MarklightGroupStyler(style: style)
         super.init()
         observeTextSize()
     }
-
-    /**
-    The designated initialiser. If you subclass `MarklightTextStorage`, you must
-    call the super implementation of this method.
-     */
+    
     required public init?(coder aDecoder: NSCoder) {
-        style = MarklightStyle(hideSyntax: false)
-        groupStyler = MarklightGroupStyler(style: style)
-        super.init(coder: aDecoder)
-        observeTextSize()
+        fatalError("init(coder:) has not been implemented")
     }
     
     /**
