@@ -322,7 +322,6 @@ open class MarklightStyle: NSObject {
         ]
         
         let listParagraphStyle = NSMutableParagraphStyle()
-//        listParagraphStyle.lineSpacing = 8.0
         listParagraphStyle.paragraphSpacingBefore = 4.0
         listParagraphStyle.paragraphSpacing = 4.0
         
@@ -504,8 +503,8 @@ extension MarklightStyle {
     //
     func numberListStyler() -> MarklightStyler {
         
-        let listMatcher = MarklightStyler(matcher: MarklightStyle.looseNumberListRegex) { (attrStr, matchRange) in
-            
+        let listMatcher = MarklightStyler(matcher: MarklightStyle.wholeNumberListRegex) { (attrStr, matchRange) in
+
             attrStr.addAttributes(self.listItemAttributes, range: matchRange)
             
             MarklightStyle.listOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
@@ -520,7 +519,7 @@ extension MarklightStyle {
     //
     func bulletListStyler() -> MarklightStyler {
         
-        let listMatcher = MarklightStyler(matcher: MarklightStyle.looseBulletListRegex) { (attrStr, matchRange) in
+        let listMatcher = MarklightStyler(matcher: MarklightStyle.wholeBulletListRegex) { (attrStr, matchRange) in
             
             attrStr.addAttributes(self.listItemAttributes, range: matchRange)
             
@@ -724,8 +723,21 @@ extension MarklightStyle {
     fileprivate static let listRegex = Regex(pattern: listPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     fileprivate static let listOpeningRegex = Regex(pattern: _listMarker, options: [.allowCommentsAndWhitespace])
     
-    fileprivate static let looseNumberListRegex = Regex(pattern: "(?:^\(_markerOL)[\\t ]+)(.|[\\t ])*", options: [.anchorsMatchLines])
-    fileprivate static let looseBulletListRegex = Regex(pattern: "(?:^\(_markerUL)[\\t ]+)(.|[\\t ])*", options: [.anchorsMatchLines])
+    // matches a single list item such as '1. hello world' or '- hello world'
+    //
+    // pattern explantation -> start of line : list prefix : at least 1 tab or space : 0 or more chars (any except newline)
+    fileprivate static let numberListItemPattern = "(?:^\(_markerOL)[\\t ]+)(.)*"
+    fileprivate static let bulletListItemPattern = "(?:^\(_markerUL)[\\t ]+)(.)*"
+    fileprivate static let numberListItemRegex = Regex(pattern: numberListItemPattern, options: [.anchorsMatchLines])
+    fileprivate static let bulletListItemRegex = Regex(pattern: bulletListItemPattern, options: [.anchorsMatchLines])
+    
+    // matches a whole list (one or more consecutive list items with no empty lines between)
+    //
+    // pattern explanation -> same as list item pattern : newline and list item : 0 or more of prev token
+    fileprivate static let wholeNumberListPattern = "(\(numberListItemPattern))(\\n\(numberListItemPattern))*"
+    fileprivate static let wholeBulletListPattern = "(\(bulletListItemPattern))(\\n\(bulletListItemPattern))*"
+    fileprivate static let wholeNumberListRegex = Regex(pattern: wholeNumberListPattern, options: [.anchorsMatchLines])
+    fileprivate static let wholeBulletListRegex = Regex(pattern: wholeBulletListPattern, options: [.anchorsMatchLines])
     
     
     // MARK: Anchors
