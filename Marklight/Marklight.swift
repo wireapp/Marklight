@@ -284,8 +284,7 @@ open class MarklightStyle: NSObject {
     
     // -----------------------------------------------------------
     
-    public init(hideSyntax: Bool) {
-        self.hideSyntax = hideSyntax
+    public override init() {
         super.init()
         configureDefaults()
     }
@@ -1074,7 +1073,8 @@ open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
     var blockQuoteStyler: MarklightStyler
     
     public override convenience init() {
-        self.init(style: MarklightStyle(hideSyntax: true))
+        self.init(style: MarklightStyle())
+        self.style.hideSyntax = true
     }
     
     public init(style: MarklightStyle) {
