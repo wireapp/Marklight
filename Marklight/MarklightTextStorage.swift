@@ -121,16 +121,7 @@ open class MarklightTextStorage: NSTextStorage {
             self.imp = cachedString.mutableCopy() as! NSMutableAttributedString
         }
         else {
-            
             removeWholeAttributes()
-            
-            let wholeRange = NSMakeRange(0, (self.string as NSString).length)
-            
-            // apply default attributes
-            if let attrs = defaultAttributes {
-                addAttributes(attrs, range: wholeRange)
-            }
-            
             groupStyler.addMarkdownAttributes(self, editedRange: self.editedRange)
             cacheDelegate?.setObject(imp.copy() as! NSAttributedString, forKey: self.string as NSString)
         }
@@ -278,7 +269,14 @@ open class MarklightTextStorage: NSTextStorage {
         let textSize = UIFontDescriptor.preferredFontDescriptor(withTextStyle: UIFontTextStyle.body).pointSize
         let wholeRange = NSMakeRange(0, (self.string as NSString).length)
         self.removeAttribute(NSForegroundColorAttributeName, range: wholeRange)
-        self.addAttribute(NSFontAttributeName, value: UIFont.systemFont(ofSize: textSize), range: wholeRange)
-        self.addAttribute(NSParagraphStyleAttributeName, value: NSMutableParagraphStyle.default, range: wholeRange)
+        self.removeAttribute(NSFontAttributeName, range: wholeRange)
+
+        // apply default attributes
+        if let attrs = defaultAttributes {
+            setAttributes(attrs, range: wholeRange)
+        } else {
+            self.addAttribute(NSFontAttributeName, value: UIFont.systemFont(ofSize: textSize), range: wholeRange)
+            self.addAttribute(NSParagraphStyleAttributeName, value: NSMutableParagraphStyle.default, range: wholeRange)
+        }
     }
 }
