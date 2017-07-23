@@ -184,10 +184,6 @@ public struct Regex {
     }
 }
 
-public protocol MarklightStylerDelegate: class {
-    func markdownStyler(_ styler: MarklightStyler, didMatchRange range: NSRange)
-}
-
 // Called within processMatch
 //
 public typealias StylingCallback = (NSMutableAttributedString, NSRange) -> Void
@@ -197,10 +193,9 @@ public typealias StylingCallback = (NSMutableAttributedString, NSRange) -> Void
 //
 open class MarklightStyler: NSObject {
     
-    weak public var delegate: MarklightStylerDelegate?
-    
     public let matcher: Regex
     public let styling: StylingCallback
+    public var ranges = [NSRange]()
 
     init(matcher: Regex, styling: @escaping StylingCallback) {
         self.matcher = matcher
@@ -208,9 +203,10 @@ open class MarklightStyler: NSObject {
     }
     
     public func processMatch(in string: NSMutableAttributedString, range: NSRange) {
+        self.ranges.removeAll()
         matcher.matches(string.string, range: range) { (result) in
             self.styling(string, result!.range)
-            self.delegate?.markdownStyler(self, didMatchRange: result!.range)
+            self.ranges.append(result!.range)
         }
     }
 }
@@ -371,7 +367,7 @@ extension MarklightStyle {
                 let attributes: [String: Any]
                 let numHashes = innerResult!.rangeAt(1).length
                 
-                // we only down to H3
+                // we style only down to H3
                 switch numHashes {
                 case 1:     attributes = self.h1HeadingAttributes
                 case 2:     attributes = self.h2HeadingAttributes
@@ -1064,23 +1060,22 @@ extension MarklightStyle {
 // multiple stylers, each responsible for parsing and styling a unit
 // of markdown syntax.
 //
-open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
+open class MarklightGroupStyler: NSObject {
     
-    let style: MarklightStyle
-    var stylers: [MarklightStyler]
-    var stylersPerParagraph: [MarklightStyler]
-    var elementRanges = [MarklightStyler: [NSRange]]()
+    let style:                  MarklightStyle
+    var stylers:                [MarklightStyler]
+    var stylersPerParagraph:    [MarklightStyler]
     
     // standard stylers
-    var headerStyler: MarklightStyler
-    var underlineHeaderStyler: MarklightStyler
-    var italicStyler: MarklightStyler
-    var boldStyler: MarklightStyler
-    var numberListStyler: MarklightStyler
-    var bulletListStyler: MarklightStyler
-    var inlineCodeStyler: MarklightStyler
-    var blockCodeStyler: MarklightStyler
-    var blockQuoteStyler: MarklightStyler
+    var headerStyler:           MarklightStyler
+    var underlineHeaderStyler:  MarklightStyler
+    var italicStyler:           MarklightStyler
+    var boldStyler:             MarklightStyler
+    var numberListStyler:       MarklightStyler
+    var bulletListStyler:       MarklightStyler
+    var inlineCodeStyler:       MarklightStyler
+    var blockCodeStyler:        MarklightStyler
+    var blockQuoteStyler:       MarklightStyler
     
     public override convenience init() {
         self.init(style: MarklightStyle())
@@ -1088,30 +1083,26 @@ open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
     }
     
     public init(style: MarklightStyle) {
-        self.style = style
-        headerStyler = style.headerStyler()
+        self.style =            style
+        headerStyler =          style.headerStyler()
         underlineHeaderStyler = style.underlineHeaderStyler()
-        italicStyler = style.italicStyler()
-        boldStyler = style.boldStyler()
-        numberListStyler = style.numberListStyler()
-        bulletListStyler = style.bulletListStyler()
-        inlineCodeStyler = style.inlineCodeStyler()
-        blockCodeStyler = style.blockCodeStyler()
-        blockQuoteStyler = style.blockQuoteStyler()
+        italicStyler =          style.italicStyler()
+        boldStyler =            style.boldStyler()
+        numberListStyler =      style.numberListStyler()
+        bulletListStyler =      style.bulletListStyler()
+        inlineCodeStyler =      style.inlineCodeStyler()
+        blockCodeStyler =       style.blockCodeStyler()
+        blockQuoteStyler =      style.blockQuoteStyler()
         
         stylersPerParagraph = [headerStyler, italicStyler, boldStyler]
         stylers = [underlineHeaderStyler, numberListStyler, bulletListStyler, inlineCodeStyler, blockCodeStyler, blockQuoteStyler]
         
         super.init()
-        
-        (stylers + stylersPerParagraph).forEach { $0.delegate = self }
     }
 
     // MARK: Processing
     
     @objc open func addMarkdownAttributes(_ input: NSAttributedString, editedRange: NSRange) {
-        
-        elementRanges.removeAll()
         
         let wholeRange = NSMakeRange(0, (input.string as NSString).length)
         let paragraphRange = (input.string as NSString).paragraphRange(for: (editedRange.location == NSNotFound) ? wholeRange : editedRange)
@@ -1125,26 +1116,16 @@ open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
         }
     }
     
-    public func markdownStyler(_ styler: MarklightStyler, didMatchRange range: NSRange) {
-        
-        // add range for styler
-        if elementRanges[styler] != nil {
-            elementRanges[styler]!.append(range)
-        } else {
-            elementRanges[styler] = [range]
-        }
-    }
-    
     open func rangesForElementType(_ type: MarkdownElementType) -> [NSRange] {
         
         // TODO: deal with different headers & list
         switch type {
-        case .header(_):    return elementRanges[headerStyler] ?? []
-        case .italic:       return elementRanges[italicStyler] ?? []
-        case .bold:         return elementRanges[boldStyler] ?? []
-        case .numberList:   return elementRanges[numberListStyler] ?? []
-        case .bulletList:   return elementRanges[bulletListStyler] ?? []
-        case .code:         return elementRanges[inlineCodeStyler] ?? []
+        case .header(_):    return headerStyler.ranges
+        case .italic:       return italicStyler.ranges
+        case .bold:         return boldStyler.ranges
+        case .numberList:   return numberListStyler.ranges
+        case .bulletList:   return bulletListStyler.ranges
+        case .code:         return inlineCodeStyler.ranges
         }
     }
 }
