@@ -355,21 +355,28 @@ open class MarklightStyle: NSObject {
 //
 extension MarklightStyle {
     
-    func headerStyler() -> MarklightStyler {
+    func headerStylerForType(_ type: MarkdownElementType.HeaderLevel) -> MarklightStyler {
         
-        let headerMatcher = MarklightStyler(matcher: MarklightStyle.headerRegex) { (attrStr, matchRange) in
+        let matcher: Regex
+        
+        switch type {
+        case .h1: matcher = MarklightStyle.h1HeaderRegex
+        case .h2: matcher = MarklightStyle.h2HeaderRegex
+        case .h3: matcher = MarklightStyle.h3HeaderRegex
+        }
+        
+        let headerMatcher = MarklightStyler(matcher: matcher) { (attrStr, matchRange) in
             
             MarklightStyle.headersAtxOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 
-                // num #'s determines header size ($1 = #{1,6})
                 let attributes: [String: Any]
-                let numHashes = innerResult!.rangeAt(1).length
                 
-                // we style only down to H3
-                switch numHashes {
-                case 1:     attributes = self.h1HeadingAttributes
-                case 2:     attributes = self.h2HeadingAttributes
-                default:    attributes = self.h3HeadingAttributes
+                // we set attributes here so in case that attributes
+                // are changed externally, they will be applied
+                switch type {
+                case .h1: attributes = self.h1HeadingAttributes
+                case .h2: attributes = self.h2HeadingAttributes
+                case .h3: attributes = self.h3HeadingAttributes
                 }
                 
                 // apply markdown style
@@ -628,6 +635,10 @@ extension MarklightStyle {
     fileprivate static let headersAtxClosingPattern = "\\#{1,6}$"
     
     fileprivate static let headersAtxClosingRegex = Regex(pattern: headersAtxClosingPattern, options: [.anchorsMatchLines])
+    
+    fileprivate static let h1HeaderRegex = Regex(pattern: "(^\\#{1})(.*)$", options: [.anchorsMatchLines])
+    fileprivate static let h2HeaderRegex = Regex(pattern: "(^\\#{2})(.*)$", options: [.anchorsMatchLines])
+    fileprivate static let h3HeaderRegex = Regex(pattern: "(^\\#{3})(.*)$", options: [.anchorsMatchLines])
     
     // MARK: Reference links
     
@@ -998,7 +1009,9 @@ open class MarklightGroupStyler: NSObject {
     var stylersPerParagraph:    [MarklightStyler]
     
     // standard stylers
-    var headerStyler:           MarklightStyler
+    var h1HeaderStyler:         MarklightStyler
+    var h2HeaderStyler:         MarklightStyler
+    var h3HeaderStyler:         MarklightStyler
     var underlineHeaderStyler:  MarklightStyler
     var italicStyler:           MarklightStyler
     var boldStyler:             MarklightStyler
@@ -1015,7 +1028,9 @@ open class MarklightGroupStyler: NSObject {
     
     public init(style: MarklightStyle) {
         self.style =            style
-        headerStyler =          style.headerStyler()
+        h1HeaderStyler =        style.headerStylerForType(.h1)
+        h2HeaderStyler =        style.headerStylerForType(.h2)
+        h3HeaderStyler =        style.headerStylerForType(.h3)
         underlineHeaderStyler = style.underlineHeaderStyler()
         italicStyler =          style.italicStyler()
         boldStyler =            style.boldStyler()
@@ -1025,7 +1040,7 @@ open class MarklightGroupStyler: NSObject {
         blockCodeStyler =       style.blockCodeStyler()
         blockQuoteStyler =      style.blockQuoteStyler()
         
-        stylersPerParagraph = [headerStyler, italicStyler, boldStyler]
+        stylersPerParagraph = [h1HeaderStyler, h2HeaderStyler, h3HeaderStyler, italicStyler, boldStyler]
         stylers = [underlineHeaderStyler, numberListStyler, bulletListStyler, inlineCodeStyler, blockCodeStyler, blockQuoteStyler]
         
         super.init()
@@ -1049,9 +1064,13 @@ open class MarklightGroupStyler: NSObject {
     
     open func rangesForElementType(_ type: MarkdownElementType) -> [NSRange] {
         
-        // TODO: deal with different headers & list
         switch type {
-        case .header(_):    return headerStyler.ranges
+        case .header(let level):
+            switch level {
+            case .h1:       return h1HeaderStyler.ranges
+            case .h2:       return h2HeaderStyler.ranges
+            case .h3:       return h3HeaderStyler.ranges
+            }
         case .italic:       return italicStyler.ranges
         case .bold:         return boldStyler.ranges
         case .numberList:   return numberListStyler.ranges
