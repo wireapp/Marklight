@@ -541,7 +541,6 @@ extension MarklightStyle {
             // apply markdown style
             attrStr.addAttributes(self.codeAttributes, range: matchRange)
             
-            // TODO: range should be paragraph range
             MarklightStyle.codeSpanOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 if !self.hideSyntax {
                     attrStr.addAttributes(self.syntaxAttributes, range: innerResult!.range)
@@ -550,7 +549,6 @@ extension MarklightStyle {
                 }
             })
             
-            // TODO: range should be paragraph range
             MarklightStyle.codeSpanClosingRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 if !self.hideSyntax {
                     attrStr.addAttributes(self.syntaxAttributes, range: innerResult!.range)
@@ -1116,7 +1114,6 @@ open class MarklightGroupStyler: NSObject, MarklightStylerDelegate {
         elementRanges.removeAll()
         
         let wholeRange = NSMakeRange(0, (input.string as NSString).length)
-        
         let paragraphRange = (input.string as NSString).paragraphRange(for: (editedRange.location == NSNotFound) ? wholeRange : editedRange)
         
         self.stylers.forEach { matcher in
