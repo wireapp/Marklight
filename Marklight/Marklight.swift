@@ -137,7 +137,7 @@ public enum MarkdownElementType {
         case h1, h2, h3
     }
     
-    case header(HeaderLevel), bold, italic, numberList, bulletList, code
+    case header(HeaderLevel), bold, italic, numberList, bulletList, code, quote
 }
 
 // Wrapper for NSRegularExpression.
@@ -355,11 +355,9 @@ open class MarklightStyle: NSObject {
 //
 extension MarklightStyle {
     
-    // Headers: 1 to 6 #'s followed by header text
-    //
     func headerStyler() -> MarklightStyler {
         
-        let headerMatcher = MarklightStyler(matcher: MarklightStyle.looseHeaderRegex) { (attrStr, matchRange) in
+        let headerMatcher = MarklightStyler(matcher: MarklightStyle.headerRegex) { (attrStr, matchRange) in
             
             MarklightStyle.headersAtxOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 
@@ -387,7 +385,7 @@ extension MarklightStyle {
                 }
             })
             
-            // trailing #'s are syntax
+            // trailing #'s are considered syntax
             MarklightStyle.headersAtxClosingRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 
                 if !self.hideSyntax {
@@ -401,8 +399,7 @@ extension MarklightStyle {
         return headerMatcher
     }
     
-    // strict italics: _italics_ or *italics*
-    //
+    
     func italicStyler() -> MarklightStyler {
         
         let strictItalicMatcher = MarklightStyler(matcher: MarklightStyle.strictItalicRegex) { (attrStr, matchRange) in
@@ -431,8 +428,7 @@ extension MarklightStyle {
         return strictItalicMatcher
     }
     
-    // bold: **bold** or __bold__
-    //
+    
     func boldStyler() -> MarklightStyler {
         
         let boldMatcher = MarklightStyler(matcher: MarklightStyle.boldRegex) { (attrStr, matchRange) in
@@ -473,9 +469,7 @@ extension MarklightStyle {
         return boldMatcher
     }
     
-    // underline header: header  or  header
-    //                   ------      ======
-    //
+    
     func underlineHeaderStyler() -> MarklightStyler {
     
         let underlineHeaderMatcher = MarklightStyler(matcher: MarklightStyle.headersSetexRegex) { (attrStr, matchRange) in
@@ -495,8 +489,7 @@ extension MarklightStyle {
         return underlineHeaderMatcher
     }
     
-    // number lists:    1. item, 2. item
-    //
+
     func numberListStyler() -> MarklightStyler {
         
         let listMatcher = MarklightStyler(matcher: MarklightStyle.wholeNumberListRegex) { (attrStr, matchRange) in
@@ -511,8 +504,7 @@ extension MarklightStyle {
         return listMatcher
     }
     
-    // number lists:    * item, + item, - item
-    //
+    
     func bulletListStyler() -> MarklightStyler {
         
         let listMatcher = MarklightStyler(matcher: MarklightStyle.wholeBulletListRegex) { (attrStr, matchRange) in
@@ -528,8 +520,6 @@ extension MarklightStyle {
     }
 
     
-    // inline code: `code goes here`
-    //
     func inlineCodeStyler() -> MarklightStyler {
         
         let codeSpanMatcher = MarklightStyler(matcher: MarklightStyle.codeSpanRegex) { (attrStr, matchRange) in
@@ -557,8 +547,7 @@ extension MarklightStyle {
         return codeSpanMatcher
     }
     
-    // code blocks: lines must start with 4 spaces
-    //
+    
     func blockCodeStyler() -> MarklightStyler {
         
         let codeBlockMatcher = MarklightStyler(matcher: MarklightStyle.codeBlockRegex) { (attrStr, matchRange) in
@@ -568,8 +557,7 @@ extension MarklightStyle {
         return codeBlockMatcher
     }
     
-    // block quotes: fisrt line must start with >
-    //
+    
     func blockQuoteStyler() -> MarklightStyler {
         
         let blockQuoteMatcher = MarklightStyler(matcher: MarklightStyle.blockQuoteRegex) { (attrStr, matchRange) in
@@ -588,6 +576,8 @@ extension MarklightStyle {
         return blockQuoteMatcher
     }
     
+    
+    // MARK: Regex Patterns
     
     /// Tabs are automatically converted to spaces as part of the transform
     /// this constant determines how "wide" those tabs become in spaces
@@ -628,30 +618,16 @@ extension MarklightStyle {
      ## Subhead ##
      */
     
-    fileprivate static let headerAtxPattern = [
-        "^(\\#{1,6})  # $1 = string of #'s",
-        "\\p{Z}*",
-        "(.+?)        # $2 = Header text",
-        "\\p{Z}*",
-        "\\#*         # optional closing #'s (not counted)",
-        "\\n+"
-        ].joined(separator: "\n")
+    // pattern: start of line : 1 to 6 '#' symbols : 0 or more tabs or spaces : 0 or more of any symbol except newline : end of line
+    fileprivate static let headerRegex = Regex(pattern: "(^\\#{1,6})(.*)$", options: [.anchorsMatchLines])
     
-    fileprivate static let headersAtxRegex = Regex(pattern: headerAtxPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
+    fileprivate static let headersAtxOpeningPattern = "^(\\#{1,6})\\s*"
     
-    fileprivate static let headersAtxOpeningPattern = [
-        "^(\\#{1,6})\\s*"
-        ].joined(separator: "\n")
+    fileprivate static let headersAtxOpeningRegex = Regex(pattern: headersAtxOpeningPattern, options: [.anchorsMatchLines])
     
-    fileprivate static let headersAtxOpeningRegex = Regex(pattern: headersAtxOpeningPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
+    fileprivate static let headersAtxClosingPattern = "\\#{1,6}$"
     
-    fileprivate static let headersAtxClosingPattern = [
-        "\\#{1,6}\\n+"
-        ].joined(separator: "\n")
-    
-    fileprivate static let headersAtxClosingRegex = Regex(pattern: headersAtxClosingPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
-    
-    fileprivate static let looseHeaderRegex = Regex(pattern: "(^\\#{1,6}[\\t ]*)(.|[\\t ])*$", options: [.anchorsMatchLines])
+    fileprivate static let headersAtxClosingRegex = Regex(pattern: headersAtxClosingPattern, options: [.anchorsMatchLines])
     
     // MARK: Reference links
     
@@ -691,30 +667,6 @@ extension MarklightStyle {
     fileprivate static let _markerOL = "\\d+[.]"
     
     fileprivate static let _listMarker = "(?:\(_markerUL)|\(_markerOL))"
-    fileprivate static let _wholeList = [
-        "(                               # $1 = whole list",
-        "  (                             # $2",
-        "    \\p{Z}{0,\(_tabWidth - 1)}",
-        "    (\(_listMarker))            # $3 = first list item marker",
-        "    \\p{Z}+",
-        "  )",
-        "  (?s:.+?)",
-        "  (                             # $4",
-        "      \\z",
-        "    |",
-        "      \\n{2,}",
-        "      (?=\\S)",
-        "      (?!                       # Negative lookahead for another list item marker",
-        "        \\p{Z}*",
-        "        \(_listMarker)\\p{Z}+",
-        "      )",
-        "  )",
-        ")"
-        ].joined(separator: "\n")
-    
-    fileprivate static let listPattern = "(?:(?<=\\n\\n)|\\A\\n?)" + _wholeList
-    
-    fileprivate static let listRegex = Regex(pattern: listPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     fileprivate static let listOpeningRegex = Regex(pattern: _listMarker, options: [.allowCommentsAndWhitespace])
     
     // matches a single list item such as '1. hello world' or '- hello world'
@@ -757,28 +709,16 @@ extension MarklightStyle {
     
     fileprivate static let anchorRegex = Regex(pattern: anchorPattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
     
-    fileprivate static let opneningSquarePattern = [
-        "(\\[)"
-        ].joined(separator: "\n")
-    
+    fileprivate static let opneningSquarePattern = "(\\[)"
     fileprivate static let openingSquareRegex = Regex(pattern: opneningSquarePattern, options: [.allowCommentsAndWhitespace])
     
-    fileprivate static let closingSquarePattern = [
-        "\\]"
-        ].joined(separator: "\n")
-    
+    fileprivate static let closingSquarePattern = "\\]"
     fileprivate static let closingSquareRegex = Regex(pattern: closingSquarePattern, options: [.allowCommentsAndWhitespace])
     
-    fileprivate static let coupleSquarePattern = [
-        "\\[(.*?)\\]"
-        ].joined(separator: "\n")
-    
+    fileprivate static let coupleSquarePattern = "\\[(.*?)\\]"
     fileprivate static let coupleSquareRegex = Regex(pattern: coupleSquarePattern, options: [])
     
-    fileprivate static let coupleRoundPattern = [
-        "\\((.*?)\\)"
-        ].joined(separator: "\n")
-    
+    fileprivate static let coupleRoundPattern = "\\((.*?)\\)"
     fileprivate static let coupleRoundRegex = Regex(pattern: coupleRoundPattern, options: [])
     
     fileprivate static let parenPattern = [
@@ -844,16 +784,10 @@ extension MarklightStyle {
     
     fileprivate static let imageRegex = Regex(pattern: imagePattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
     
-    fileprivate static let imageOpeningSquarePattern = [
-        "(!\\[)"
-        ].joined(separator: "\n")
-    
+    fileprivate static let imageOpeningSquarePattern = "(!\\[)"
     fileprivate static let imageOpeningSquareRegex = Regex(pattern: imageOpeningSquarePattern, options: [.allowCommentsAndWhitespace])
     
-    fileprivate static let imageClosingSquarePattern = [
-        "(\\])"
-        ].joined(separator: "\n")
-    
+    fileprivate static let imageClosingSquarePattern = "(\\])"
     fileprivate static let imageClosingSquareRegex = Regex(pattern: imageClosingSquarePattern, options: [.allowCommentsAndWhitespace])
     
     fileprivate static let imageInlinePattern = [
@@ -946,10 +880,7 @@ extension MarklightStyle {
     
     fileprivate static let blockQuoteRegex = Regex(pattern: blockQuotePattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     
-    fileprivate static let blockQuoteOpeningPattern = [
-        "(^\\p{Z}*>\\p{Z})"
-        ].joined(separator: "\n")
-    
+    fileprivate static let blockQuoteOpeningPattern = "(^\\p{Z}*>\\p{Z})"
     fileprivate static let blockQuoteOpeningRegex = Regex(pattern: blockQuoteOpeningPattern, options: [.anchorsMatchLines])
     
     // MARK: Bold
@@ -1126,6 +1057,7 @@ open class MarklightGroupStyler: NSObject {
         case .numberList:   return numberListStyler.ranges
         case .bulletList:   return bulletListStyler.ranges
         case .code:         return inlineCodeStyler.ranges
+        case .quote:        return blockQuoteStyler.ranges
         }
     }
 }
