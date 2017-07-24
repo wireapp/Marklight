@@ -86,7 +86,6 @@ open class MarklightTextStorage: NSTextStorage {
     // We store here the `NSAttributedString`.
     fileprivate var imp = NSMutableAttributedString(string: "")
     
-    
     // Contains all styler objects that process & apply the attributes.
     open let groupStyler: MarklightGroupStyler
     
@@ -140,6 +139,10 @@ open class MarklightTextStorage: NSTextStorage {
         groupStyler = MarklightGroupStyler(style: style)
         super.init()
         observeTextSize()
+    }
+
+    public override convenience init() {
+        self.init(style: MarklightStyle())
     }
     
     required public init?(coder aDecoder: NSCoder) {
