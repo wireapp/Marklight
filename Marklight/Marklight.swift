@@ -329,8 +329,16 @@ open class MarklightStyle: NSObject {
             NSForegroundColorAttributeName: UIColor.gray
         ]
         
+        let codeFont: UIFont
+        
+        if #available(iOS 9, *) {
+            codeFont = UIFont.monospacedDigitSystemFont(ofSize: textSize, weight: UIFontWeightRegular)
+        } else {
+            codeFont = UIFont(name: "Menlo", size: textSize)!
+        }
+        
         codeAttributes = [
-            NSFontAttributeName: UIFont(name: "Menlo", size: textSize)!,
+            NSFontAttributeName: codeFont,
             NSForegroundColorAttributeName: UIColor.darkGray
         ]
         
@@ -338,7 +346,7 @@ open class MarklightStyle: NSObject {
         quoteParagraphStyle.headIndent = 20.0
         
         blockQuoteAttributes = [
-            NSFontAttributeName: UIFont(name: "Menlo", size: textSize)!,
+            NSFontAttributeName: codeFont,
             NSForegroundColorAttributeName: UIColor.darkGray,
             NSParagraphStyleAttributeName: quoteParagraphStyle
         ]
@@ -859,7 +867,7 @@ extension MarklightStyle {
         "(?!`)"
         ].joined(separator: "\n")
     
-    fileprivate static let singleOrTripeTickCodeSpanPattern = [
+    fileprivate static let singleOrTripleTickCodeSpanPattern = [
         "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
         "(`|```)           # $1 = Opening run of `",
         "(.*?)          # $2 = The code block",
