@@ -463,10 +463,13 @@ extension MarklightStyle {
             let preRange = NSMakeRange(matchRange.location, 2)
             let postRange = NSMakeRange(matchRange.location + matchRange.length - 2, 2)
             
-            // style syntax else hide it
             if !self.hideSyntax {
                 attrStr.addAttributes(self.syntaxAttributes, range: preRange)
                 attrStr.addAttributes(self.syntaxAttributes, range: postRange)
+                // need to reset font attribute since italic matcher can match empty
+                // italics (** or __)
+                attrStr.addAttribute(NSFontAttributeName, value: self.boldAttributes[NSFontAttributeName] as! UIFont, range: preRange)
+                attrStr.addAttribute(NSFontAttributeName, value: self.boldAttributes[NSFontAttributeName] as! UIFont, range: postRange)
             } else {
                 attrStr.addAttributes(self.hiddenAttributes, range: preRange)
                 attrStr.addAttributes(self.hiddenAttributes, range: postRange)
@@ -905,7 +908,7 @@ extension MarklightStyle {
     
     fileprivate static let strictBoldRegex = Regex(pattern: strictBoldPattern, options: [.anchorsMatchLines])
     
-    fileprivate static let boldPattern = "(\\*\\*|__) (?=\\S) (.+?[*_]*) (?<=\\S) \\1"
+    fileprivate static let boldPattern = "(\\*\\*|__) (.*?[*_]*) \\1" // note: matches even for empty content (eg: ****)
     
     fileprivate static let boldRegex = Regex(pattern: boldPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     
@@ -916,7 +919,11 @@ extension MarklightStyle {
      _Italic_
      */
     
-    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)(?=\\S)((?:(?!\\2).)*?\\S)\\2(?!\\2)(?=[\\W_]|$)"
+//    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)(?=\\S)((?:(?!\\2).)*?\\S)\\2(?!\\2)(?=[\\W_]|$)"
+    
+    // note: allows spaces after opening syntax and before closing syntax
+//    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)(?:[\\t ]*)(?=\\S)((?:(?!\\2).)*?\\S)(?:[\\t ]*)\\2(?!\\2)(?=[\\W_]|$)"
+    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)((?:(?!\\2).)*?)\\2(?!\\2)(?=[\\W_]|$)"
     
     fileprivate static let strictItalicRegex = Regex(pattern: strictItalicPattern, options: [.anchorsMatchLines])
     
@@ -1060,6 +1067,8 @@ open class MarklightGroupStyler: NSObject {
         self.stylersPerParagraph.forEach { matcher in
             matcher.processMatch(in: input as! NSMutableAttributedString, range: paragraphRange)
         }
+        
+        removeEmptyItalicRanges()
     }
     
     open func rangesForElementType(_ type: MarkdownElementType) -> [NSRange] {
@@ -1077,6 +1086,34 @@ open class MarklightGroupStyler: NSObject {
         case .bulletList:   return bulletListStyler.ranges
         case .code:         return inlineCodeStyler.ranges
         case .quote:        return blockQuoteStyler.ranges
+        }
+    }
+    
+    // Hack: for bold ranges, remove italic ranges for empty tokens (** or __) that exist in bold syntax
+    private func removeEmptyItalicRanges() {
+        
+        for range in boldStyler.ranges {
+            
+            // ranges of syntax
+            let preRange = NSMakeRange(range.location, 2)
+            let postRange = NSMakeRange(range.location + range.length - 2, 2)
+            
+            var rangesToDelete = [NSRange]()
+            
+            for italicRange in italicStyler.ranges {
+                // if pre/post range contained within italic range, then equal.
+                // italic range includes preceeding space, thats why we check if union is
+                // equal the italic range and not the pre/post range
+                let isPreRange = NSEqualRanges(NSUnionRange(italicRange, preRange), italicRange)
+                let isPostRange = NSEqualRanges(NSUnionRange(italicRange, postRange), italicRange)
+                if isPreRange || isPostRange {
+                    rangesToDelete.append(italicRange)
+                }
+            }
+            
+            for (i, _) in italicStyler.ranges.enumerated().reversed() {
+                italicStyler.ranges.remove(at: i)
+            }
         }
     }
 }
