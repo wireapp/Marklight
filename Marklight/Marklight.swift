@@ -853,13 +853,21 @@ extension MarklightStyle {
         "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
         "(`+)           # $1 = Opening run of `",
         "(?!`)          # and no more backticks -- match the full run",
-        "(.+?)          # $2 = The code block",
+        "(.*?)          # $2 = The code block",
         "(?<!`)",
         "\\1",
         "(?!`)"
         ].joined(separator: "\n")
     
-    fileprivate static let codeSpanRegex = Regex(pattern: codeSpanPattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
+    fileprivate static let singleOrTripeTickCodeSpanPattern = [
+        "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
+        "(`|```)           # $1 = Opening run of `",
+        "(.*?)          # $2 = The code block",
+        "\\1",
+        "(?!`)"
+        ].joined(separator: "\n")
+    
+    fileprivate static let codeSpanRegex = Regex(pattern: singleOrTripleTickCodeSpanPattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
     
     fileprivate static let codeSpanOpeningPattern = [
         "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
