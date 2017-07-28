@@ -1106,21 +1106,21 @@ open class MarklightGroupStyler: NSObject {
             let preRange = NSMakeRange(range.location, 2)
             let postRange = NSMakeRange(range.location + range.length - 2, 2)
             
-            var rangesToDelete = [NSRange]()
+            var rangesToDelete = [Int]()
             
-            for italicRange in italicStyler.ranges {
+            for (i, italicRange) in italicStyler.ranges.enumerated() {
                 // if pre/post range contained within italic range, then equal.
                 // italic range includes preceeding space, thats why we check if union is
                 // equal the italic range and not the pre/post range
                 let isPreRange = NSEqualRanges(NSUnionRange(italicRange, preRange), italicRange)
                 let isPostRange = NSEqualRanges(NSUnionRange(italicRange, postRange), italicRange)
                 if isPreRange || isPostRange {
-                    rangesToDelete.append(italicRange)
+                    rangesToDelete.append(i)
                 }
             }
-            
-            for (i, _) in italicStyler.ranges.enumerated().reversed() {
-                italicStyler.ranges.remove(at: i)
+        
+            for index in rangesToDelete.reversed() {
+                italicStyler.ranges.remove(at: index)
             }
         }
     }
