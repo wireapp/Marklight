@@ -329,16 +329,8 @@ open class MarklightStyle: NSObject {
             NSForegroundColorAttributeName: UIColor.gray
         ]
         
-        let codeFont: UIFont
-        
-        if #available(iOS 9, *) {
-            codeFont = UIFont.monospacedDigitSystemFont(ofSize: textSize, weight: UIFontWeightRegular)
-        } else {
-            codeFont = UIFont(name: "Menlo", size: textSize)!
-        }
-        
         codeAttributes = [
-            NSFontAttributeName: codeFont,
+            NSFontAttributeName: UIFont(name: "Menlo", size: textSize)!,
             NSForegroundColorAttributeName: UIColor.darkGray
         ]
         
@@ -346,7 +338,7 @@ open class MarklightStyle: NSObject {
         quoteParagraphStyle.headIndent = 20.0
         
         blockQuoteAttributes = [
-            NSFontAttributeName: codeFont,
+            NSFontAttributeName: UIFont(name: "Menlo", size: textSize)!,
             NSForegroundColorAttributeName: UIColor.darkGray,
             NSParagraphStyleAttributeName: quoteParagraphStyle
         ]
