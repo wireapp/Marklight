@@ -639,9 +639,10 @@ extension MarklightStyle {
     
     fileprivate static let headersAtxClosingRegex = Regex(pattern: headersAtxClosingPattern, options: [.anchorsMatchLines])
     
-    fileprivate static let h1HeaderRegex = Regex(pattern: "(^\\#{1})(.*)$", options: [.anchorsMatchLines])
-    fileprivate static let h2HeaderRegex = Regex(pattern: "(^\\#{2})(.*)$", options: [.anchorsMatchLines])
-    fileprivate static let h3HeaderRegex = Regex(pattern: "(^\\#{3})(.*)$", options: [.anchorsMatchLines])
+    // needs at least one space before header content
+    fileprivate static let h1HeaderRegex = Regex(pattern: "(^\\#{1}[\\t ]+)(.*)$", options: [.anchorsMatchLines])
+    fileprivate static let h2HeaderRegex = Regex(pattern: "(^\\#{2}[\\t ]+)(.*)$", options: [.anchorsMatchLines])
+    fileprivate static let h3HeaderRegex = Regex(pattern: "(^\\#{3}[\\t ]+)(.*)$", options: [.anchorsMatchLines])
     
     // MARK: Reference links
     
@@ -1109,6 +1110,10 @@ open class MarklightGroupStyler: NSObject {
             var rangesToDelete = [Int]()
             
             for (i, italicRange) in italicStyler.ranges.enumerated() {
+                // if nonempty italic range
+                if italicRange.length > 3 {
+                    continue
+                }
                 // if pre/post range contained within italic range, then equal.
                 // italic range includes preceeding space, thats why we check if union is
                 // equal the italic range and not the pre/post range
