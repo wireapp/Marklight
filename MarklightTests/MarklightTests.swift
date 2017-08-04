@@ -226,7 +226,7 @@ class MarklightTests: XCTestCase {
     
     func testCodeBlock() {
         // given
-        let string = ["```","func testCodeBlock()","```",""].joined(separator: "\n")
+        let string = ["`","func testCodeBlock()","`"].joined(separator: "\n")
         let attributedString = NSAttributedString(string: string)
         
         // when
@@ -236,19 +236,19 @@ class MarklightTests: XCTestCase {
         var range : NSRange? = NSMakeRange(0, 1)
         if let attribute = textStorage.attribute(NSForegroundColorAttributeName, at: 0, effectiveRange: &range!) as? UIColor {
             XCTAssert(attribute == textStorage.style.syntaxAttributes[NSForegroundColorAttributeName] as! UIColor)
-            XCTAssert(range?.length == 3)
+            XCTAssert(range?.length == 1)
         } else {
             XCTFail()
         }
-        if let attribute = textStorage.attribute(NSFontAttributeName, at: 3, effectiveRange: &range!) as? UIFont {
+        if let attribute = textStorage.attribute(NSFontAttributeName, at: 1, effectiveRange: &range!) as? UIFont {
             XCTAssert(attribute == textStorage.style.codeAttributes[NSFontAttributeName] as! UIFont)
             XCTAssert(range?.length == 22)
         } else {
             XCTFail()
         }
-        if let attribute = textStorage.attribute(NSForegroundColorAttributeName, at: 25, effectiveRange: &range!) as? UIColor {
+        if let attribute = textStorage.attribute(NSForegroundColorAttributeName, at: 23, effectiveRange: &range!) as? UIColor {
             XCTAssert(attribute == textStorage.style.syntaxAttributes[NSForegroundColorAttributeName] as! UIColor)
-            XCTAssert(range?.length == 3)
+            XCTAssert(range?.length == 1)
         } else {
             XCTFail()
         }
