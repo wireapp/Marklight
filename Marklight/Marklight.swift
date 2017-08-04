@@ -407,7 +407,7 @@ extension MarklightStyle {
     }
     
     
-    func italicStyler() -> MarklightStyler {
+    func strictItalicStyler() -> MarklightStyler {
         
         let strictItalicMatcher = MarklightStyler(matcher: MarklightStyle.strictItalicRegex) { (attrStr, matchRange) in
             
@@ -433,6 +433,55 @@ extension MarklightStyle {
         }
         
         return strictItalicMatcher
+    }
+    
+    func strictBoldStyler() -> MarklightStyler {
+        
+        let strictBoldMatcher = MarklightStyler(matcher: MarklightStyle.strictBoldRegex) { (attrStr, matchRange) in
+            
+            // apply markdown style
+            attrStr.addAttributes(self.boldAttributes, range: matchRange)
+            
+            let substring = (attrStr.string as NSString).substring(with: NSMakeRange(matchRange.location, 1))
+            var start = 0
+            if substring == " " || substring == "\n" {
+                start = 1
+            }
+            
+            let preRange = NSMakeRange(matchRange.location + start, 2)
+            let postRange = NSMakeRange(matchRange.location + matchRange.length - 2, 2)
+            
+            if !self.hideSyntax {
+                attrStr.addAttributes(self.syntaxAttributes, range: preRange)
+                attrStr.addAttributes(self.syntaxAttributes, range: postRange)
+            } else {
+                attrStr.addAttributes(self.hiddenAttributes, range: preRange)
+                attrStr.addAttributes(self.hiddenAttributes, range: postRange)
+            }
+        }
+        
+        return strictBoldMatcher
+    }
+    
+    func italicStyler() -> MarklightStyler {
+        
+        let italicMatcher = MarklightStyler(matcher: MarklightStyle.italicRegex) { (attrStr, matchRange) in
+            
+            attrStr.addAttributes(self.italicAttributes, range: matchRange)
+            
+            let preRange = NSMakeRange(matchRange.location, 1)
+            let postRange = NSMakeRange(matchRange.location + matchRange.length - 1, 1)
+            
+            if !self.hideSyntax {
+                attrStr.addAttributes(self.syntaxAttributes, range: preRange)
+                attrStr.addAttributes(self.syntaxAttributes, range: postRange)
+            } else {
+                attrStr.addAttributes(self.hiddenAttributes, range: preRange)
+                attrStr.addAttributes(self.hiddenAttributes, range: postRange)
+            }
+        }
+        
+        return italicMatcher
     }
     
     
@@ -593,7 +642,12 @@ extension MarklightStyle {
     /// this constant determines how "wide" those tabs become in spaces
     fileprivate static let _tabWidth = 4
     
-    // MARK: Regex Patterns
+    /// When true, italic & bold patterns can match without content
+    fileprivate static var allowEmptyMatches = true
+    
+    /// When true, italic & bold patterns allow spaces after opening syntax
+    /// and before closing syntax
+    fileprivate static var allowSpaces = true
     
     /*
      Head
@@ -917,7 +971,7 @@ extension MarklightStyle {
     
     fileprivate static let strictBoldRegex = Regex(pattern: strictBoldPattern, options: [.anchorsMatchLines])
     
-    fileprivate static let boldPattern = "(\\*\\*|__) (.*?[*_]*) \\1" // note: matches even for empty content (eg: ****)
+    fileprivate static let boldPattern = "(\\*\\*|__) \(allowSpaces ? "" : "(?=\\S)") (.\(allowEmptyMatches ? "*" : "+")?[*_]*) \(allowSpaces ? "" : "(?<=\\S)") \\1"
     
     fileprivate static let boldRegex = Regex(pattern: boldPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     
@@ -928,15 +982,11 @@ extension MarklightStyle {
      _Italic_
      */
     
-//    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)(?=\\S)((?:(?!\\2).)*?\\S)\\2(?!\\2)(?=[\\W_]|$)"
-    
-    // note: allows spaces after opening syntax and before closing syntax
-//    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)(?:[\\t ]*)(?=\\S)((?:(?!\\2).)*?\\S)(?:[\\t ]*)\\2(?!\\2)(?=[\\W_]|$)"
-    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)((?:(?!\\2).)*?)\\2(?!\\2)(?=[\\W_]|$)"
+    fileprivate static let strictItalicPattern = "(^|[\\W_])(?:(?!\\1)|(?=^))(\\*|_)(?=\\S)((?:(?!\\2).)*?\\S)\\2(?!\\2)(?=[\\W_]|$)"
     
     fileprivate static let strictItalicRegex = Regex(pattern: strictItalicPattern, options: [.anchorsMatchLines])
     
-    fileprivate static let italicPattern = "(\\*|_) (?=\\S) (.+?) (?<=\\S) \\1"
+    fileprivate static let italicPattern = "(\\*|_) \(allowSpaces ? "" : "(?=\\S)") (.\(allowEmptyMatches ? "*" : "+")?) \(allowSpaces ? "" : "(?<=\\S)") \\1"
     
     fileprivate static let italicRegex = Regex(pattern: italicPattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     
@@ -1029,6 +1079,8 @@ open class MarklightGroupStyler: NSObject {
     var h2HeaderStyler:         MarklightStyler
     var h3HeaderStyler:         MarklightStyler
     var underlineHeaderStyler:  MarklightStyler
+    var strictItalicStyler:     MarklightStyler
+    var strictBoldStyler:       MarklightStyler
     var italicStyler:           MarklightStyler
     var boldStyler:             MarklightStyler
     var numberListStyler:       MarklightStyler
@@ -1048,6 +1100,8 @@ open class MarklightGroupStyler: NSObject {
         h2HeaderStyler =        style.headerStylerForType(.h2)
         h3HeaderStyler =        style.headerStylerForType(.h3)
         underlineHeaderStyler = style.underlineHeaderStyler()
+        strictItalicStyler =    style.strictItalicStyler()
+        strictBoldStyler =      style.strictBoldStyler()
         italicStyler =          style.italicStyler()
         boldStyler =            style.boldStyler()
         numberListStyler =      style.numberListStyler()
@@ -1056,7 +1110,7 @@ open class MarklightGroupStyler: NSObject {
         blockCodeStyler =       style.blockCodeStyler()
         blockQuoteStyler =      style.blockQuoteStyler()
         
-        stylersPerParagraph = [h1HeaderStyler, h2HeaderStyler, h3HeaderStyler, italicStyler, boldStyler]
+        stylersPerParagraph = [h1HeaderStyler, h2HeaderStyler, h3HeaderStyler, strictItalicStyler, strictBoldStyler, italicStyler, boldStyler]
         stylers = [underlineHeaderStyler, numberListStyler, bulletListStyler, inlineCodeStyler, blockCodeStyler, blockQuoteStyler]
         
         super.init()
@@ -1089,8 +1143,8 @@ open class MarklightGroupStyler: NSObject {
             case .h2:       return h2HeaderStyler.ranges
             case .h3:       return h3HeaderStyler.ranges
             }
-        case .italic:       return italicStyler.ranges
-        case .bold:         return boldStyler.ranges
+        case .italic:       return strictItalicStyler.ranges + italicStyler.ranges
+        case .bold:         return strictBoldStyler.ranges + boldStyler.ranges
         case .numberList:   return numberListStyler.ranges
         case .bulletList:   return bulletListStyler.ranges
         case .code:         return inlineCodeStyler.ranges
