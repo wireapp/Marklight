@@ -415,8 +415,13 @@ extension MarklightStyle {
             attrStr.addAttributes(self.italicAttributes, range: matchRange)
             
             let substring = (attrStr.string as NSString).substring(with: NSMakeRange(matchRange.location, 1))
+            
+            // strict italic require start of string or following pattern to preceed syntax
+            let regex = try! NSRegularExpression(pattern: "\\W|_", options: [])
+            
             var start = 0
-            if substring == " " || substring == "\n" {
+            
+            if matchRange.location != 0 && regex.numberOfMatches(in: substring, options: [], range: NSMakeRange(0, 1)) > 0 {
                 start = 1
             }
             
