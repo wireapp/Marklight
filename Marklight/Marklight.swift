@@ -186,7 +186,22 @@ public struct Regex {
 
 // Called within processMatch
 //
-public typealias StylingCallback = (NSMutableAttributedString, NSRange) -> Void
+public typealias StylingCallback = (NSMutableAttributedString, NSRange) -> MarkdownRange
+
+
+public struct MarkdownRange {
+    
+    public let wholeRange: NSRange
+    public let preRange: NSRange?
+    public let postRange: NSRange?
+    
+    public var contentRange: NSRange {
+        get {
+            let syntaxLength = (preRange?.length ?? 0) + (postRange?.length ?? 0)
+            return NSMakeRange(wholeRange.location + (preRange?.length ?? 0), wholeRange.length - syntaxLength)
+        }
+    }
+}
 
 
 // Parses an input string and calls the styling callback with the match range.
@@ -195,7 +210,7 @@ open class MarklightStyler: NSObject {
     
     public let matcher: Regex
     public let styling: StylingCallback
-    public var ranges = [NSRange]()
+    public var ranges = [MarkdownRange]()
 
     init(matcher: Regex, styling: @escaping StylingCallback) {
         self.matcher = matcher
@@ -205,8 +220,7 @@ open class MarklightStyler: NSObject {
     public func processMatch(in string: NSMutableAttributedString, range: NSRange) {
         self.ranges.removeAll()
         matcher.matches(string.string, range: range) { (result) in
-            self.styling(string, result!.range)
-            self.ranges.append(result!.range)
+            self.ranges.append(self.styling(string, result!.range))
         }
     }
 }
@@ -367,6 +381,9 @@ extension MarklightStyle {
         
         let headerMatcher = MarklightStyler(matcher: matcher) { (attrStr, matchRange) in
             
+            var preRange = NSMakeRange(0, 0)
+            var postRange = NSMakeRange(0, 0)
+            
             MarklightStyle.headersAtxOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 
                 let attributes: [String: Any]
@@ -383,7 +400,7 @@ extension MarklightStyle {
                 attrStr.addAttributes(attributes, range: matchRange)
                 
                 // syntax range & style
-                let preRange = NSMakeRange(matchRange.location, innerResult!.range.length)
+                preRange = NSMakeRange(matchRange.location, innerResult!.range.length)
                 
                 if !self.hideSyntax {
                     attrStr.addAttributes(self.syntaxAttributes, range: preRange)
@@ -395,12 +412,16 @@ extension MarklightStyle {
             // trailing #'s are considered syntax
             MarklightStyle.headersAtxClosingRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
                 
+                postRange = innerResult!.range
+                
                 if !self.hideSyntax {
-                    attrStr.addAttributes(self.syntaxAttributes, range: innerResult!.range)
+                    attrStr.addAttributes(self.syntaxAttributes, range: postRange)
                 } else {
-                    attrStr.addAttributes(self.hiddenAttributes, range: innerResult!.range)
+                    attrStr.addAttributes(self.hiddenAttributes, range: postRange)
                 }
             })
+            
+            return MarkdownRange(wholeRange: matchRange, preRange: preRange, postRange: postRange)
         }
         
         return headerMatcher
@@ -410,9 +431,6 @@ extension MarklightStyle {
     func strictItalicStyler() -> MarklightStyler {
         
         let strictItalicMatcher = MarklightStyler(matcher: MarklightStyle.strictItalicRegex) { (attrStr, matchRange) in
-            
-            // apply markdown style
-            attrStr.addAttributes(self.italicAttributes, range: matchRange)
             
             let substring = (attrStr.string as NSString).substring(with: NSMakeRange(matchRange.location, 1))
             
@@ -425,6 +443,11 @@ extension MarklightStyle {
                 start = 1
             }
             
+            let adjustedRange = NSMakeRange(matchRange.location + start, matchRange.length - start)
+            
+            // apply markdown style
+            attrStr.addAttributes(self.italicAttributes, range: adjustedRange)
+            
             let preRange = NSMakeRange(matchRange.location + start, 1)
             let postRange = NSMakeRange(matchRange.location + matchRange.length - 1, 1)
             
@@ -435,6 +458,8 @@ extension MarklightStyle {
                 attrStr.addAttributes(self.hiddenAttributes, range: preRange)
                 attrStr.addAttributes(self.hiddenAttributes, range: postRange)
             }
+            
+            return MarkdownRange(wholeRange: adjustedRange, preRange: preRange, postRange: postRange)
         }
         
         return strictItalicMatcher
@@ -444,14 +469,21 @@ extension MarklightStyle {
         
         let strictBoldMatcher = MarklightStyler(matcher: MarklightStyle.strictBoldRegex) { (attrStr, matchRange) in
             
-            // apply markdown style
-            attrStr.addAttributes(self.boldAttributes, range: matchRange)
-            
             let substring = (attrStr.string as NSString).substring(with: NSMakeRange(matchRange.location, 1))
+            
+            // strict bold require start of string or following pattern to preceed syntax
+            let regex = try! NSRegularExpression(pattern: "\\W|_", options: [])
+            
             var start = 0
-            if substring == " " || substring == "\n" {
+            
+            if matchRange.location != 0 && regex.numberOfMatches(in: substring, options: [], range: NSMakeRange(0, 1)) > 0 {
                 start = 1
             }
+            
+            let adjustedRange = NSMakeRange(matchRange.location + start, matchRange.length - start)
+            
+            // apply markdown style
+            attrStr.addAttributes(self.boldAttributes, range: adjustedRange)
             
             let preRange = NSMakeRange(matchRange.location + start, 2)
             let postRange = NSMakeRange(matchRange.location + matchRange.length - 2, 2)
@@ -463,6 +495,8 @@ extension MarklightStyle {
                 attrStr.addAttributes(self.hiddenAttributes, range: preRange)
                 attrStr.addAttributes(self.hiddenAttributes, range: postRange)
             }
+            
+            return MarkdownRange(wholeRange: adjustedRange, preRange: preRange, postRange: postRange)
         }
         
         return strictBoldMatcher
@@ -484,6 +518,8 @@ extension MarklightStyle {
                 attrStr.addAttributes(self.hiddenAttributes, range: preRange)
                 attrStr.addAttributes(self.hiddenAttributes, range: postRange)
             }
+            
+            return MarkdownRange(wholeRange: matchRange, preRange: preRange, postRange: postRange)
         }
         
         return italicMatcher
@@ -528,6 +564,8 @@ extension MarklightStyle {
                 attrStr.addAttributes(self.hiddenAttributes, range: preRange)
                 attrStr.addAttributes(self.hiddenAttributes, range: postRange)
             }
+            
+            return MarkdownRange(wholeRange: matchRange, preRange: preRange, postRange: postRange)
         }
         
         return boldMatcher
@@ -537,17 +575,25 @@ extension MarklightStyle {
     func underlineHeaderStyler() -> MarklightStyler {
     
         let underlineHeaderMatcher = MarklightStyler(matcher: MarklightStyle.headersSetexRegex) { (attrStr, matchRange) in
+            
+            var postRange: NSRange?
+            
             // apply markdown attributes
             attrStr.addAttributes(self.h1HeadingAttributes, range: matchRange)
             // match syntax
             MarklightStyle.headersSetexUnderlineRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
+                
+                postRange = innerResult!.range
+                
                 // style syntax else hide it
                 if !self.hideSyntax {
-                    attrStr.addAttributes(self.syntaxAttributes, range: innerResult!.range)
+                    attrStr.addAttributes(self.syntaxAttributes, range: postRange!)
                 } else {
-                    attrStr.addAttributes(self.hiddenAttributes, range: innerResult!.range)
+                    attrStr.addAttributes(self.hiddenAttributes, range: postRange!)
                 }
             })
+            
+            return MarkdownRange(wholeRange: matchRange, preRange: nil, postRange: postRange)
         }
         
         return underlineHeaderMatcher
@@ -556,13 +602,17 @@ extension MarklightStyle {
 
     func numberListStyler() -> MarklightStyler {
         
-        let listMatcher = MarklightStyler(matcher: MarklightStyle.wholeNumberListRegex) { (attrStr, matchRange) in
+        let listMatcher = MarklightStyler(matcher: MarklightStyle.numberListItemRegex) { (attrStr, matchRange) in
 
+            var preRange: NSRange?
             attrStr.addAttributes(self.listItemAttributes, range: matchRange)
             
             MarklightStyle.listOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-                attrStr.addAttributes(self.listSyntaxAttributes, range: innerResult!.range)
+                preRange = innerResult!.range
+                attrStr.addAttributes(self.listSyntaxAttributes, range: preRange!)
             })
+            
+            return MarkdownRange(wholeRange: matchRange, preRange: preRange, postRange: nil)
         }
         
         return listMatcher
@@ -571,13 +621,17 @@ extension MarklightStyle {
     
     func bulletListStyler() -> MarklightStyler {
         
-        let listMatcher = MarklightStyler(matcher: MarklightStyle.wholeBulletListRegex) { (attrStr, matchRange) in
+        let listMatcher = MarklightStyler(matcher: MarklightStyle.bulletListItemRegex) { (attrStr, matchRange) in
             
+            var preRange: NSRange?
             attrStr.addAttributes(self.listItemAttributes, range: matchRange)
             
             MarklightStyle.listOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-                attrStr.addAttributes(self.listSyntaxAttributes, range: innerResult!.range)
+                preRange = innerResult!.range
+                attrStr.addAttributes(self.listSyntaxAttributes, range: preRange!)
             })
+            
+            return MarkdownRange(wholeRange: matchRange, preRange: preRange, postRange: nil)
         }
         
         return listMatcher
@@ -588,24 +642,23 @@ extension MarklightStyle {
         
         let codeSpanMatcher = MarklightStyler(matcher: MarklightStyle.codeSpanRegex) { (attrStr, matchRange) in
             
-            // apply markdown style
+            var preRange: NSRange?
+            var postRange: NSRange?
+            
             attrStr.addAttributes(self.codeAttributes, range: matchRange)
             
-            MarklightStyle.codeSpanOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-                if !self.hideSyntax {
-                    attrStr.addAttributes(self.syntaxAttributes, range: innerResult!.range)
-                } else {
-                    attrStr.addAttributes(self.hiddenAttributes, range: innerResult!.range)
-                }
-            })
+            preRange = NSMakeRange(matchRange.location, 1)
+            postRange = NSMakeRange(NSMaxRange(matchRange) - 1, 1)
+
+            if !self.hideSyntax {
+                attrStr.addAttributes(self.syntaxAttributes, range: preRange!)
+                attrStr.addAttributes(self.syntaxAttributes, range: postRange!)
+            } else {
+                attrStr.addAttributes(self.hiddenAttributes, range: preRange!)
+                attrStr.addAttributes(self.hiddenAttributes, range: postRange!)
+            }
             
-            MarklightStyle.codeSpanClosingRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
-                if !self.hideSyntax {
-                    attrStr.addAttributes(self.syntaxAttributes, range: innerResult!.range)
-                } else {
-                    attrStr.addAttributes(self.hiddenAttributes, range: innerResult!.range)
-                }
-            })
+            return MarkdownRange(wholeRange: matchRange, preRange: preRange, postRange: postRange)
         }
         
         return codeSpanMatcher
@@ -616,6 +669,7 @@ extension MarklightStyle {
         
         let codeBlockMatcher = MarklightStyler(matcher: MarklightStyle.codeBlockRegex) { (attrStr, matchRange) in
             attrStr.addAttributes(self.codeAttributes, range: matchRange)
+            return MarkdownRange(wholeRange: matchRange, preRange: nil, postRange: nil)
         }
         
         return codeBlockMatcher
@@ -625,16 +679,23 @@ extension MarklightStyle {
     func blockQuoteStyler() -> MarklightStyler {
         
         let blockQuoteMatcher = MarklightStyler(matcher: MarklightStyle.blockQuoteRegex) { (attrStr, matchRange) in
-
+            
+            var preRange: NSRange?
+            
             attrStr.addAttributes(self.blockQuoteAttributes, range: matchRange)
             
             MarklightStyle.blockQuoteOpeningRegex.matches(attrStr.string, range: matchRange, completion: { (innerResult) in
+                
+                preRange = innerResult!.range
+                
                 if !self.hideSyntax {
-                    attrStr.addAttributes(self.syntaxAttributes, range: innerResult!.range)
+                    attrStr.addAttributes(self.syntaxAttributes, range: preRange!)
                 } else {
-                    attrStr.addAttributes(self.hiddenAttributes, range: innerResult!.range)
+                    attrStr.addAttributes(self.hiddenAttributes, range: preRange!)
                 }
             })
+            
+            return MarkdownRange(wholeRange: matchRange, preRange: preRange, postRange: nil)
         }
         
         return blockQuoteMatcher
@@ -737,17 +798,17 @@ extension MarklightStyle {
      * Second element
      */
     
-    fileprivate static let _markerUL = "[*+-]"
-    fileprivate static let _markerOL = "\\d+[.]"
+    fileprivate static let _markerUL = "[*+-][\\t ]+"
+    fileprivate static let _markerOL = "\\d+[.][\\t ]+"
     
     fileprivate static let _listMarker = "(?:\(_markerUL)|\(_markerOL))"
-    fileprivate static let listOpeningRegex = Regex(pattern: _listMarker, options: [.allowCommentsAndWhitespace])
+    fileprivate static let listOpeningRegex = Regex(pattern: _listMarker, options: [])
     
     // matches a single list item such as '1. hello world' or '- hello world'
     //
     // pattern explantation -> start of line : list prefix : at least 1 tab or space : 0 or more chars (any except newline)
-    fileprivate static let numberListItemPattern = "(?:^\(_markerOL)[\\t ]+)(.)*"
-    fileprivate static let bulletListItemPattern = "(?:^\(_markerUL)[\\t ]+)(.)*"
+    fileprivate static let numberListItemPattern = "(?:^\(_markerOL))(.)*"
+    fileprivate static let bulletListItemPattern = "(?:^\(_markerUL))(.)*"
     fileprivate static let numberListItemRegex = Regex(pattern: numberListItemPattern, options: [.anchorsMatchLines])
     fileprivate static let bulletListItemRegex = Regex(pattern: bulletListItemPattern, options: [.anchorsMatchLines])
     
@@ -919,26 +980,26 @@ extension MarklightStyle {
         "(?!`)"
         ].joined(separator: "\n")
     
-    fileprivate static let singleOrTripleTickCodeSpanPattern = [
+    fileprivate static let singleTickCodeSpanPattern = [
         "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
-        "(`|```)           # $1 = Opening run of `",
+        "(`)            # $1 = Opening run of `",
         "(.*?)          # $2 = The code block",
         "\\1",
         "(?!`)"
         ].joined(separator: "\n")
     
-    fileprivate static let codeSpanRegex = Regex(pattern: singleOrTripleTickCodeSpanPattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
+    fileprivate static let codeSpanRegex = Regex(pattern: singleTickCodeSpanPattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
     
     fileprivate static let codeSpanOpeningPattern = [
         "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
-        "(`+)           # $1 = Opening run of `"
+        "(`|`{3})       # $1 = Opening run of `"
         ].joined(separator: "\n")
     
     fileprivate static let codeSpanOpeningRegex = Regex(pattern: codeSpanOpeningPattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
     
     fileprivate static let codeSpanClosingPattern = [
         "(?<![\\\\`])   # Character before opening ` can't be a backslash or backtick",
-        "(`+)           # $1 = Opening run of `"
+        "(`|`{3})      # $1 = Opening run of `"
         ].joined(separator: "\n")
     
     fileprivate static let codeSpanClosingRegex = Regex(pattern: codeSpanClosingPattern, options: [.allowCommentsAndWhitespace, .dotMatchesLineSeparators])
@@ -963,6 +1024,7 @@ extension MarklightStyle {
     fileprivate static let blockQuoteRegex = Regex(pattern: blockQuotePattern, options: [.allowCommentsAndWhitespace, .anchorsMatchLines])
     
     fileprivate static let blockQuoteOpeningPattern = "(^\\p{Z}*>\\p{Z})"
+    
     fileprivate static let blockQuoteOpeningRegex = Regex(pattern: blockQuoteOpeningPattern, options: [.anchorsMatchLines])
     
     // MARK: Bold
@@ -1139,7 +1201,7 @@ open class MarklightGroupStyler: NSObject {
         removeEmptyItalicRanges()
     }
     
-    open func rangesForElementType(_ type: MarkdownElementType) -> [NSRange] {
+    open func rangesForElementType(_ type: MarkdownElementType) -> [MarkdownRange] {
         
         switch type {
         case .header(let level):
@@ -1162,22 +1224,18 @@ open class MarklightGroupStyler: NSObject {
         
         for range in boldStyler.ranges {
             
-            // ranges of syntax
-            let preRange = NSMakeRange(range.location, 2)
-            let postRange = NSMakeRange(range.location + range.length - 2, 2)
-            
             var rangesToDelete = [Int]()
             
             for (i, italicRange) in italicStyler.ranges.enumerated() {
                 // if nonempty italic range
-                if italicRange.length > 3 {
+                if italicRange.wholeRange.length > 3 {
                     continue
                 }
                 // if pre/post range contained within italic range, then equal.
                 // italic range includes preceeding space, thats why we check if union is
                 // equal the italic range and not the pre/post range
-                let isPreRange = NSEqualRanges(NSUnionRange(italicRange, preRange), italicRange)
-                let isPostRange = NSEqualRanges(NSUnionRange(italicRange, postRange), italicRange)
+                let isPreRange = NSEqualRanges(NSUnionRange(italicRange.wholeRange, range.preRange!), italicRange.wholeRange)
+                let isPostRange = NSEqualRanges(NSUnionRange(italicRange.wholeRange, range.postRange!), italicRange.wholeRange)
                 if isPreRange || isPostRange {
                     rangesToDelete.append(i)
                 }
