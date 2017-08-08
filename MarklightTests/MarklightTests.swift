@@ -170,13 +170,13 @@ class MarklightTests: XCTestCase {
         var range : NSRange? = NSMakeRange(0, string.lengthOfBytes(using: .utf8))
         if let attribute = textStorage.attribute(NSForegroundColorAttributeName, at: 0, effectiveRange: &range!) as? UIColor {
             XCTAssert(attribute == textStorage.style.listSyntaxAttributes[NSForegroundColorAttributeName] as! UIColor)
-            XCTAssert(range?.length == 1)
+            XCTAssert(range?.length == 2)
         } else {
             XCTFail()
         }
         if let attribute = textStorage.attribute(NSForegroundColorAttributeName, at: 8, effectiveRange: &range!) as? UIColor {
             XCTAssert(attribute == textStorage.style.listSyntaxAttributes[NSForegroundColorAttributeName] as! UIColor)
-            XCTAssert(range?.length == 1)
+            XCTAssert(range?.length == 2)
         } else {
             XCTFail()
         }
