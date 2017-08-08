@@ -66,22 +66,8 @@ import UIKit
     - see: `Marklight`
  */
 
-/**
- The Cache Delegate provides caching capabilities for processed strings in order to process
- reduce overhead incurred by applying attributes to the text storage.
- */
-public protocol MarklightCacheDelegate: class {
-    
-    func object(forKey key: NSString) -> NSAttributedString?
-    func setObject(_ obj: NSAttributedString, forKey key: NSString)
-    func setObject(_ obj: NSAttributedString, forKey key: NSString, cost g: Int)
-    func removeObject(forKey key: NSString)
-    func removeAllObjects()
-}
 
 open class MarklightTextStorage: NSTextStorage {
-
-    open weak var cacheDelegate: MarklightCacheDelegate?
     
     // We store here the `NSAttributedString`.
     fileprivate var imp = NSMutableAttributedString(string: "")
@@ -115,16 +101,8 @@ open class MarklightTextStorage: NSTextStorage {
     [`NSTextStorage`](xcdoc://?url=developer.apple.com/library/ios/documentation/UIKit/Reference/NSTextStorage_Class_TextKit/index.html#//apple_ref/doc/uid/TP40013282)
     */
     override open func processEditing() {
-    
-        if let cachedString = cacheDelegate?.object(forKey: self.string as NSString) {
-            self.imp = cachedString.mutableCopy() as! NSMutableAttributedString
-        }
-        else {
-            removeWholeAttributes()
-            groupStyler.addMarkdownAttributes(self, editedRange: self.editedRange)
-            cacheDelegate?.setObject(imp.copy() as! NSAttributedString, forKey: self.string as NSString)
-        }
-        
+        removeWholeAttributes()
+        groupStyler.addMarkdownAttributes(self, editedRange: self.editedRange)
         super.processEditing()
     }
     
